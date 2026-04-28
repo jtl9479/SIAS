@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+	<!-- security 네임스페이스설정 -->
+	<beans:beans xmlns:beans="http://www.springframework.org/schema/beans"
+	   			 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+       			 xmlns:security="http://www.springframework.org/schema/security"
+       			 xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+                 	http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-4.0.xsd">
+           
+	<beans:bean id="customeUserDetailsService" class="sgis.security.mapper.CustomUserDetailsService"></beans:bean>
+ 	<beans:bean id="customeAuthenticationProvider" class="sgis.security.mapper.CustomAuthenticationProvider"></beans:bean> 
+ 	
+ 	<beans:bean id="passwordEncoder" class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder"></beans:bean>
+ 	
+ 	<!-- 로그인 실패시 핸들러 -->
+	<beans:bean id="loginFailureHandler" class="sgis.security.LoginFailureHandler" >
+		<!-- <beans:property name="defaultFailureUrl" value="/login?fail=true" /> -->
+	</beans:bean>
+	
+	<!-- 로그인 성공시 핸들러 -->
+	<!-- bk_LoginSuccesshandler 
+	<beans:bean id="loginSuccessHandler" class="sgis.security.LoginSuccessHandler">
+		<beans:property name="targetUrlParameter" value="loginRedirect" />	
+		<beans:property name="useReferer" value="false" />
+		<beans:property name="defaultUrl" value="/login/menu.do" />
+	</beans:bean> -->
+	
+	<!-- 로그인 성공시 핸들러 -->
+	<beans:bean id="loginSuccessHandler" class="sgis.security.LoginSuccessHandler">
+		<beans:property name="targetUrlParameter" value="loginRedirect" />	
+		<beans:property name="useReferer" value="false" /><!-- true일 경우 Referer 헤더값을 사용한단 의미 -->
+		<!-- <beans:property name="defaultUrl" value="/menu/menu.do" /> -->
+	</beans:bean>
+	
+	<security:authentication-manager alias="authenticationManager"> <!-- 인메모리 사용자 db방벙 --> 
+		<security:authentication-provider ref="customeAuthenticationProvider">
+		</security:authentication-provider>
+		<security:authentication-provider user-service-ref="customeUserDetailsService">
+			 <security:password-encoder ref="passwordEncoder"></security:password-encoder> 
+		</security:authentication-provider>
+	</security:authentication-manager>	
+		
+	<security:http auto-config="true" use-expressions="true"> <!-- 앞에 security는 네임스페이스임    expressio은 ip와같이 접근 권한 제한을 좀더풍부하게 할수 있음-->
+		<security:csrf disabled="true" /><!-- Cross Scripting Gaurd -->
+	
+		<!-- 가이드 
+		<security:intercept-url pattern="/menu/**" access="hasAnyAuthority('USER','ADMIN')" /> → hasAnyAuthority 여러 권한 중복에 대한 처리가 가능하다. 
+		<security:intercept-url pattern="/member/**" access="hasAuthority('USER')" /> 인증된 사람만 접근 가능 
+		<security:intercept-url pattern="/manager/**" access="hasAuthority(ROLE_USER)" /> hasRole/hasAuthority 같은뜻 저권한 가지만 사람만 접근가능 -->
+		
+		<!-- 주석 처리해놔야지만 거래처, 사원 간 메뉴 이동 안됨 (20181130191700_확인) 
+		<security:intercept-url pattern="/**" access="permitAll" /> -->
+		
+		<!--20190327_SGIS_TY  -->
+		<!-- sample
+			<security:intercept-url pattern="/sample/**" access="hasAnyAuthority('AA', 'BB')" />
+		 	hasAnyAuthority => 'AA' 또는 'BB'가 있을 경우, 접근 가능 (argument 2개 이상 가능)
+		 	Sias에서 로그인 시 제품 조회 화면으로 이동하기 때문에 주의해야함. (default-target-url="/prdInqire/page.do")
+		 	상위 태그 (http) 아래 access-denied-handler라는 태그가 있다. 이 태그로 handler 추가 후 이용 가능
+		 	참고 : https://zgundam.tistory.com/60
+		-->
+		
+		<!-- 업체 사용자 -->
+		<security:intercept-url pattern="/ordMod/**" access="hasAuthority('USER')" /> <!-- 미수금 발생할 경우 접근불가 -->
+		<security:intercept-url pattern="/wrhousInq/**" access="hasAuthority('USER')" />
+		<security:intercept-url pattern="/notice/**" access="hasAuthority('USER')" />
+		<security:intercept-url pattern="/prdInqire/**" access="hasAuthority('USER')" /> <!-- 미수금 발생할 경우 접근불가 -->
+		<security:intercept-url pattern="/dmandPredict/**" access="hasAuthority('USER')" />
+		<security:intercept-url pattern="/dcsnOrd/**" access="hasAuthority('USER')" />
+		<security:intercept-url pattern="/unDcsnOrd/**" access="hasAuthority('USER')" />
+		<security:intercept-url pattern="/ordCnslt/**" access="hasAuthority('USER')" />
+		<security:intercept-url pattern="/predict/**" access="hasAuthority('USER')" />
+		<security:intercept-url pattern="/qna/**" access="hasAuthority('USER')" />
+		
+		<!-- sias 관리자 -->
+		<security:intercept-url pattern="/mn/**" access="hasAuthority('ADMIN')" />
+		<security:intercept-url pattern="/mn/menu/**" access="hasAuthority('ADMIN')" />
+		<security:intercept-url pattern="/mn/notice/**" access="hasAuthority('ADMIN')" />
+		<security:intercept-url pattern="/mn/dcsnProcess/**" access="hasAuthority('ADMIN')" />
+		<security:intercept-url pattern="/mn/prdInqire/**" access="hasAuthority('ADMIN')" />
+		<security:intercept-url pattern="/mn/unDcsnOrd/**" access="hasAuthority('ADMIN')" />
+		<security:intercept-url pattern="/mn/qna/**" access="hasAuthority('ADMIN')" />
+		<security:intercept-url pattern="/mn/excel/**" access="hasAuthority('ADMIN')" />
+		<security:intercept-url pattern="/ckeditor/**" access="hasAuthority('ADMIN')" />
+		
+		<security:form-login 
+			login-page="/login/loginPg.do" 
+			default-target-url="/prdInqire/page.do"
+			authentication-success-handler-ref="loginSuccessHandler"
+			authentication-failure-url="/login/loginPg.do?login=fail" />
+			<!-- default-target-url="/prdInqire/page.do" 로그인 성공시 /prdInqire/page.do로 이동-->
+		<security:logout 
+			invalidate-session="true"
+			logout-success-url="/login/loginPg.do" 
+			logout-url="/login/logOut.do"
+			delete-cookies="JSESSIONID" />
+		<security:session-management invalid-session-url="/login/loginPg.do"> 
+			<security:concurrency-control max-sessions="1" error-if-maximum-exceeded="true" /> 
+		</security:session-management>
+		
+		<!-- authentication-failure-url="/login/loginPg.do" 페이지 redirect 방식-->
+		<!-- authentication-failure-url="/login?fail=true" 파라미터 방식-->
+		<!-- authentication-failure-handler-ref="loginFailureHandler" 핸들러 지정 방식(현재 테스트중)-->
+		
+	</security:http>
+	
+</beans:beans>

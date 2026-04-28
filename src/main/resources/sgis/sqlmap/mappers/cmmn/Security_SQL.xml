@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sgis.security.mapper.SecurityMapper">
+
+	<select id="selectUserDetailInfo" resultType="sgis.security.dto.user">
+			<!-- 거래처코드가 여러 사업장에 등록되어있는 경우 20 등록사업장 거래처 정보를 우선으로 가져온다. -->
+			<!-- 20190404_SGIS_TY 추가
+				unColectMoney : 미수금 발생 여부 판단 (거래처만)
+				등록사업장 = 60일경우 별도의 Logic을 탐 (dbo.*유통)
+				등록사업장 값과 별개로 어음한도에 따른 process 는 동일
+				어음한도가 1인 경우 금액계산
+				어음한도가 2인 경우 기간 내 일부 상환금 계산
+					- (dbo.미수계산_함수 > 0) 이면 dbo.미수계산_기간 실행
+				
+				Login 후 unColectMoney에 boolean 형태의 값이 담기며 해당 값은 Filter 에서 Logic 처리를 진행한다.
+				
+				
+				어음한도 1 : 한도금액
+				어음한도 2 : 기간내 입금
+				어음한도 3 : 한도 없음  > 무조건 통과
+				
+			 -->
+			 
+			 <!-- 20200608_SGIS_TY 어음한도 관련해서 보강 진행 기존 적용 된 내역 백업 
+			 /*, ( CASE WHEN CM.등록사업장 = '60' THEN 
+									(CASE WHEN CONVERT(numeric, CM.출고정지) = 1 THEN 'true' ELSE 'false' END)
+									ELSE 
+										(CASE WHEN CONVERT(numeric, CM.어음한도) = 1 
+											  THEN 
+												(CASE WHEN (CONVERT(numeric, CM.외상한도) - DBO.미수계산_함수(CONVERT(VARCHAR(8), getdate(),112), RTRIM(WC.거래처코드))) <= 0
+												THEN 'true' ELSE 'false' END)
+											  WHEN CONVERT(numeric, CM.어음한도) = 2 
+											 	THEN 
+												(CASE WHEN DBO.미수계산_함수(CONVERT(VARCHAR(8),getdate(),112), RTRIM(WC.거래처코드)) > 0
+												THEN 
+													(CASE WHEN ISNULL(DBO.미수계산_기간(CONVERT(VARCHAR(8),getdate(),112), CONVERT(numeric, CM.외상한도), RTRIM(WC.거래처코드)), 0) > 0
+													THEN 'false'
+													ELSE 'true' END)
+												ELSE 'false' END)
+										 ELSE 'false' END)
+					ELSE 'false' END) */
+					->> 김성종 부사장님 요청
+					어음 2인데 (기간)
+					미수 금액 <= 선수금, 첫 거래 -> 무조건 주문 받을 수 있다 그냥 들어가면 됨
+					3개월동안의 입금금액이 있으면 무조건 주문 받을 수 있다.
+					3개월동안의 입금금액이 = 0 등록 불가
+			  -->
+			 
+		  <![CDATA[
+		  	SELECT *
+		  		FROM (
+			  				SELECT
+								RTRIM(WC.거래처코드) AS bcncCode
+								, WC.LOGIN_ID AS userName
+								, CONVERT(VARCHAR(MAX), DECRYPTBYPASSPHRASE('SGISERPW', CONVERT(NVARCHAR(MAX), WC.LOGIN_PW))) AS password
+								, WC.납기일자최소일자 AS dedtMummDe
+								, WC.납기일자기준시간 AS dedtStdrTime
+								, (CASE WHEN WC.사용유무 = 'Y' THEN 'true' ELSE 'false' END ) AS enabled
+								, CM.등록사업장	AS registBplc
+								, RTRIM(CM.사업자번호) AS bizrNo
+								, RTRIM(CM.상호) AS cmpNm
+								, CM.외상한도 AS crdtLmt
+								, CM.어음한도 AS bilLmt
+								, CM.최소주문량 AS mummOrderQy
+								, 'USER' AS authority
+								, 'U' AS userSe
+								, ( CASE WHEN CM.등록사업장 = '60' THEN 
+									(CASE WHEN CONVERT(numeric, CM.출고정지) = 1 THEN 'true' ELSE 'false' END)
+									ELSE 
+											(CASE WHEN CONVERT(numeric, CM.어음한도) = 1 
+											  THEN 
+												(CASE WHEN (CONVERT(numeric, CM.외상한도) - DBO.미수계산_함수(CONVERT(VARCHAR(8), getdate(),112), RTRIM(WC.거래처코드))) <= 0
+												THEN 'true' ELSE 'false' END)
+											  WHEN CONVERT(numeric, CM.어음한도) = 2 
+											 	THEN 
+												(CASE WHEN DBO.미수계산_함수(CONVERT(VARCHAR(8),getdate(),112), RTRIM(WC.거래처코드)) <= 0 THEN 'false'
+												ELSE
+													(CASE WHEN ISNULL(DBO.미수계산_기간(CONVERT(VARCHAR(8),getdate(),112), CONVERT(numeric, CM.외상한도), RTRIM(WC.거래처코드)), 0) > 0  THEN 'false'
+													ELSE 'true' END)
+												END)
+										 ELSE 'false' END)
+
+									  END) AS unColectMoney
+									  , DBO.미수계산_함수(CONVERT(VARCHAR(8), getdate(),112), RTRIM(WC.거래처코드)) AS unColectMoneyAm -- 미수금 합계
+									  , '' AS ordBplcNm
+									  , 'N' AS accesAuthor
+									  ,	CM.출고정지 AS dlivyStopAt -- (출고정지:1 출고정지 등록된 상태, 출고정지:0 출고 가능 상태)
+							FROM 거래처MASTER CM JOIN 웹거래처 WC WITH(NOLOCK)
+								ON (CM.거래처코드 = WC.거래처코드
+								AND CM.등록사업장 = WC.사업장
+								AND CM.해지일자 = '00000000')
+							WHERE
+								WC.LOGIN_ID=RTRIM(#{username})
+								AND WC.사용유무 = 'Y'
+						) TAB
+					
+				UNION
+					
+				SELECT 
+					WP.사번 AS bcncCode
+					, WP.성명 AS userName
+					, CONVERT(VARCHAR(MAX), DECRYPTBYPASSPHRASE('SGISERPW', CONVERT(NVARCHAR(MAX), WP.WEB_LOGIN_PW))) AS password
+					, 0 AS dedtMummDe
+					, 0 AS dedtStdrTime
+					, (CASE WHEN WP.WEB_USE_YN = 'Y' THEN 'true' ELSE 'false' END ) AS enabled
+					, WP.사업장코드	AS registBplc
+					, WP.사번 AS bizrNo
+					, '' AS cmpNm
+					, 0 AS crdtLmt
+					, 0 AS bilLmt
+					, 0.0 AS mummOrderQy
+					, 'ADMIN' AS authority
+					, 'A' AS userSe
+					, 'false' AS unColectMoney
+					, 0 AS unColectMoneyAm
+					, (SELECT RTRIM(사업장명칭) FROM 사업장코드 WHERE 사업장 = WP.사업장코드) AS ordBplcNm
+					/* // ** 20191211 >>  프로그램 사용권한 테이블에 데이터가 없어도 웹 사용은 가능 해야 하기 때문에 변경 진행 (김이사님 컨펌)*/
+					, ISNULL((SELECT  CASE WHEN PU.사용권한 = 'true' THEN 'Y'ELSE 'N' END FROM 프로그램사용권한 PU
+						WHERE PU.프로그램번호 = 206 AND PU.업무 = 'G' AND PU.사업장 = WP.사업장코드 AND PU.사원번호 = WP.사번),'N') AS accesAuthor
+					, 0 AS dlivyStopAt
+					/* 20191212 EXISTS 쿼리 사용으로 변경 진행하려 했으나, ISNULL 처리로 진행해도 무방하기 때문에 아래 SQL 보관
+					, (CASE WHEN WP.WEB_USE_YN = 'Y' THEN 
+						(CASE WHEN EXISTS(SELECT * FROM 프로그램사용권한 PU WHERE PU.프로그램번호 = 206 AND PU.업무 = 'G' AND PU.사업장 = WP.사업장코드 AND PU.사원번호 = WP.사번 AND 사용권한 = 'true') THEN 'Y' ELSE 'N' END)
+					  ELSE 'N' END) AS accesAuthor*/
+				FROM 웹개인기본_VIEW WP
+				WHERE 
+					WP.사번 = RTRIM(#{username})
+					AND WP.사업장코드 = '20'
+		  ]]>
+	</select>
+	
+</mapper>

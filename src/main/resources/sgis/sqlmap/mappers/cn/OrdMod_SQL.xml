@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn/ordMod">
+
+	<select id="getDeadLine" parameterType="hashmap" resultType="hashmap">
+		SELECT DBO.웹_납기일자_함수(#{alocEntrps},GETDATE()) AS DEADLINE
+	</select>
+	
+	<select id="dlvyView" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT EDR.업체코드 AS ENTRPS_CODE
+				, EDR.NO AS SN
+				, EDR.착지업체 AS DLVY_ENTRPS
+				, EDR.출고사업장 AS DLIVY_BPLC
+				, (CASE WHEN CM.배송요일체크 = 'TRUE' THEN 'Y' ELSE 'N' END)  AS DLVY_DE_CECK
+				, (CASE WHEN CM.배송일 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_SUN
+				, (CASE WHEN CM.배송월 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_MON
+				, (CASE WHEN CM.배송화 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_TUE
+				, (CASE WHEN CM.배송수 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_WEN
+				, (CASE WHEN CM.배송목 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_THUR
+				, (CASE WHEN CM.배송금 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_FRI
+				, (CASE WHEN CM.배송토 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_SAT
+				, RTRIM(CM.상호) AS DLVY_ENTRPS_NM
+				, RTRIM(CM.본_주소) AS DLVY_ENTRPS_ADDRESS
+				, CM.최소주문량 AS MUMM_ORDER_QY
+				
+				, (CASE WHEN CM.배송요일체크 = 'TRUE' THEN 
+					ISNULL(CASE WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_1 AND RTRIM(CLDR.공휴유무) = '') > 0 AND 
+							(CASE DATEPART(DW, DATE_TAB.DATE_1) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_1 
+						
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_2 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_2) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_2
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_3 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_3) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_3
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_4 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_4) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_4
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_5 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_5) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_5
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_6 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_6) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_6
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_7 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_7) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_7
+					END, DBO.웹_납기일자_함수(EDR.착지업체, GETDATE()))  
+				
+				 ELSE DBO.웹_납기일자_함수(EDR.착지업체, GETDATE()) END) AS DEADLINE
+		]]>
+		<include refid="dlvyViewFrom"/>
+		<include refid="dlvyViewWhere"/>
+	</select>
+	
+	<sql id="dlvyViewFrom">
+		FROM 거래처MASTER CM JOIN 업체배송지등록 EDR WITH(NOLOCK)
+				ON (CM.등록사업장 = EDR.출고사업장 
+				AND CM.거래처코드 = EDR.착지업체)
+			, (SELECT CONVERT(VARCHAR , DATEADD(DAY, 1, GETDATE()) ,112) AS DATE_1
+					, CONVERT(VARCHAR , DATEADD(DAY, 2, GETDATE()) ,112) AS DATE_2
+					, CONVERT(VARCHAR , DATEADD(DAY, 3, GETDATE()) ,112) AS DATE_3
+					, CONVERT(VARCHAR , DATEADD(DAY, 4, GETDATE()) ,112) AS DATE_4
+					, CONVERT(VARCHAR , DATEADD(DAY, 5, GETDATE()) ,112) AS DATE_5
+					, CONVERT(VARCHAR , DATEADD(DAY, 6, GETDATE()) ,112) AS DATE_6
+					, CONVERT(VARCHAR , DATEADD(DAY, 7, GETDATE()) ,112) AS DATE_7 ) AS DATE_TAB
+	</sql>
+	
+	<sql id="dlvyViewWhere">
+		<![CDATA[
+			WHERE 1=1 
+				AND EDR.업체코드 = #{bcncCode}
+				AND EDR.착지업체 = #{alocEntrps}
+				AND EDR.출고사업장 = #{registBplc}
+		]]>
+		<!-- AND EDR.출고사업장 = (SELECT MIN(EDR2.출고사업장) FROM 업체배송지등록 EDR2 WHERE EDR2.업체코드 = EDR2.업체코드 AND EDR.착지업체 = EDR2.착지업체) -->
+			
+			<!-- AND EDR.착지업체 = ISNULL(
+								(SELECT TOP 1 WB.착지업체
+								FROM 웹장바구니 WB
+								WHERE WB.거래처코드 = #{bcncCode}
+									AND WB.일자 > CONVERT(VARCHAR,DATEADD(DD, CONVERT(INTEGER, -3), GETDATE()),112)
+								ORDER BY WB.일자 DESC, WB.일련번호 DESC)
+								, (SELECT TOP 1 EDR2.착지업체 
+								FROM 업체배송지등록 EDR2 
+								WHERE EDR2.업체코드 = #{bcncCode})) -->
+	</sql>
+
+
+	<select id="dlvyListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(DISTINCT WB.착지업체) AS total
+		<include refid="dlvyFrom"/>
+		<include refid="dlvyWhere"/>
+	</select>
+	
+	<select id="dlvyList" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[ 
+			SELECT DISTINCT
+				WB.착지업체 AS W_ALOCENTRPS
+				, (SELECT RTRIM(CM2.상호) 
+					FROM 거래처MASTER CM2 
+					WHERE CM2.거래처코드 = WB.착지업체 
+					AND CM2.등록사업장 = WB.출고사업장) AS DLVY_ENTRPS_NM
+		]]>
+		<include refid="dlvyFrom"/>
+		<include refid="dlvyWhere"/>
+		ORDER BY WB.착지업체
+	</select>
+	
+	<sql id="dlvyFrom">
+		<![CDATA[ 
+			FROM 웹장바구니 WB  JOIN 거래처MASTER CM WITH(NOLOCK)
+				ON (WB.착지업체 = CM.거래처코드
+				AND WB.출고사업장 = CM.등록사업장)
+			JOIN 품목코드 IC WITH(NOLOCK)
+				ON (WB.출고사업장 = IC.사업장
+				AND WB.품목코드 = IC.품목코드)
+		]]>
+	</sql>
+	
+	<sql id="dlvyWhere">
+		<![CDATA[ 
+			WHERE 1=1 
+				AND WB.거래처코드 = #{bcncCode}
+				AND WB.납기일자 > #{searchDtFrom}
+				AND WB.납기일자 <= #{searchDtTo}				
+				AND 0 = (
+								SELECT COUNT(*) 
+								FROM 웹주문접수 WO2
+								WHERE 
+									WB.거래처코드 = WO2.거래처코드
+									AND WB.일자 = WO2.장바구니일자
+									AND WB.일련번호 = WO2.장바구니번호
+									AND WO2.접수삭제 = 'N'
+							)
+		]]>
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND IC.품목명 LIKE UPPER('%'+ #{searchItemNm} +'%')]]>
+		</if>
+	</sql>
+
+	<select id="basketListCnt" parameterType="hashmap" resultType="int">
+		SELECT 
+			COUNT(*) AS total
+		<include refid="basketFrom"/>
+		<include refid="basketWhere"/> 
+	</select>
+	
+	<select id="basketList" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			WB.일자 AS W_DE
+			, WB.일련번호 AS W_SN
+			, WB.단가 AS W_UNTPC
+			, WB.단가사업장 AS W_UNIT_BPLC
+			, WB.납기일자 AS W_DEDT
+			, WB.단가단위	AS W_UNTPCUNIT
+			, WB.단가단위문자 AS W_UNIT_CHRCTR
+			, WB.수량 AS W_QUANTITY
+			, WB.그룹수량 AS W_GRP_QY
+			, WB.낱개수량 AS W_PIECE_QY
+			, WB.중량 AS W_WT
+			, WB.공급가액 AS W_SPLPCAM
+			, WB.부가세 AS W_VAT
+			, WB.착지업체 AS W_ALOCENTRPS
+			, WB.출고사업장 AS W_DLIVY_BPLC
+			, WB.합계금액 AS W_SUMAMOUNT
+			, WB.주문비고 AS W_NOTE
+			, WB.선택여부 AS W_CHOISE_AT
+			<!-- , COUNT(WB.납기일자) OVER (PARTITION BY WB.착지업체, WB.납기일자 )	AS CO -->
+			<!-- , SUM(WB.중량) OVER (PARTITION BY WB.납기일자 ) AS GRP_QUANTITYAM -->
+			, SUM(WB.합계금액) OVER (PARTITION BY WB.납기일자) AS GRP_SUMAM
+			, COUNT(WB.납기일자) OVER (PARTITION BY WB.납기일자)	AS CO
+			, ROW_NUMBER() OVER (PARTITION BY WB.납기일자 ORDER BY WB.납기일자, WB.일련번호) AS GRP_DTNUMBER
+			<!-- , RTRIM(CM.상호) AS CM_ENTRPSNM -->
+			, (SELECT RTRIM(CM2.상호) FROM 거래처MASTER CM2 WHERE CM2.거래처코드 = WB.착지업체 AND CM2.등록사업장 = WB.출고사업장) AS CM_ENTRPSNM
+			, RTRIM(IC.품목코드) AS IC_CODE
+			, RTRIM(IC.품목명) AS IC_NM
+			, RTRIM(IC.규격) AS IC_STNDRD
+			, RTRIM(IC.단위) AS IC_UNIT
+			<!-- // ** 2019.11 단위중량 0일경우 1로 치환해서 가져옴 추가
+			, IC.단위중량 AS IC_UNITWT-->
+			, (CASE IC.단위중량 WHEN 0 THEN 1 ELSE IC.단위중량 END) AS IC_UNITWT
+			, (CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END) AS IC_PACKNGUNIT
+			<!-- // ** 2019.11 단위중량 0일경우 1로 치환해서 가져옴 추가
+			, IC.단위당수량 AS IC_UNITQY-->
+			, (CASE IC.단위당수량 WHEN 0 THEN 1 ELSE IC.단위당수량 END) AS IC_UNITQY
+			, IC.업체전용구분 AS IC_ENT_DVR_SE
+			, IC.생산구분 AS IC_PRDCTN_SE
+			, UPC.단가단위 AS UPC_UNTPCUNIT
+			, UPC.신단가 AS UPC_NEWUNITPC
+			, CONVERT(VARCHAR(1),UPC.부가세포함유무) AS UPC_VATINCLSAT
+			<!-- , IC.단위당수량 * (CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END) * DBO.웹_재고중량_함수(WB.납기일자, RTRIM(IC.품목코드), 'B', WB.일자, 0) AS INVNTRY_QY -->
+			, DBO.웹_재고중량_함수(WB.납기일자, RTRIM(IC.품목코드), 'B', WB.일자, 0) AS INVNTRY_QY
+			, DATEDIFF(DAY, GETDATE(), WB.납기일자) AS DATE_DIFF
+		<include refid="basketFrom"/>
+		<include refid="basketWhere"/>
+		ORDER BY WB.납기일자, WB.일련번호   --, CM.상호
+	</select>
+	
+	<sql id="basketFrom">
+		<![CDATA[ 
+			FROM 웹장바구니 WB JOIN 단가변동 UPC WITH(NOLOCK)
+				ON (WB.단가사업장 = UPC.사업장
+				AND WB.거래처코드 = UPC.거래처코드
+				AND WB.품목코드 = UPC.품목코드
+				AND UPC.변경일자 = (SELECT MAX(UPC2.변경일자) FROM 단가변동 UPC2
+							WHERE UPC.사업장 = UPC2.사업장 
+							AND UPC.품목코드 = UPC2.품목코드
+							AND UPC.거래처코드 = UPC2.거래처코드 
+							AND UPC2.변경일자 <= CONVERT(VARCHAR(8),getdate(),112)) )
+				
+				JOIN 품목코드 IC WITH(NOLOCK)
+				ON (UPC.사업장 = IC.사업장
+				AND UPC.품목코드 = IC.품목코드)
+		]]>
+	</sql>
+	
+	<sql id="basketWhere">
+		<![CDATA[ 
+			WHERE 1=1 
+				AND WB.거래처코드 = #{bcncCode}
+				AND WB.착지업체 = #{alocEntrps}
+				AND (UPC.거래정지일자 = '00000000' OR UPC.거래정지일자 >=CONVERT(VARCHAR,GETDATE(),112) )
+				AND IC.폐기일자 <= CONVERT(VARCHAR,GETDATE(),112)
+				AND 0 = (
+								SELECT COUNT(*) 
+								FROM 웹주문접수 WO2
+								WHERE 
+									WB.거래처코드 = WO2.거래처코드
+									AND WB.일자 = WO2.장바구니일자
+									AND WB.일련번호 = WO2.장바구니번호
+									AND WO2.접수삭제 = 'N'
+							)
+		]]>
+		<![CDATA[
+			AND WB.납기일자 > #{searchDtFrom}
+			AND WB.납기일자 <= #{searchDtTo}
+		]]>
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND IC.품목명 LIKE UPPER('%'+ #{searchItemNm} +'%')]]>
+		</if>
+	</sql>
+	
+	<update id="update" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			UPDATE 웹장바구니 SET
+					수량 = #{item.oQuantity}
+					, 그룹수량 = #{item.oGrpQy}
+					, 낱개수량 = #{item.oPieceQy}
+					, 중량= #{item.oWt}
+					, 단가 = #{item.oNewUnitpc}
+					, 공급가액 = #{item.oSplpcAm}
+					, 부가세 = #{item.oVat}
+					, 합계금액 = #{item.oSumAm}
+					, 납기일자 = #{item.itemDedt}
+					, 주문비고 = #{item.oNote}
+					, 선택여부 = #{item.oChgAt}
+					, 수정자 = #{bcncCode}
+					, 수정일자 = CONVERT(VARCHAR,GETDATE(),112)
+					, 수정시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+				WHERE 거래처코드 = #{bcncCode} 
+				AND 일자 = #{item.oDe}
+				AND 일련번호 = #{item.oSn}
+		</foreach>
+	</update>
+	
+	<delete id="delete" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			DELETE FROM 웹장바구니
+			WHERE 거래처코드 = #{bcncCode} 
+			AND 일자 = #{item.oDe}
+			AND 일련번호 = #{item.oSn}
+		</foreach>
+	</delete>
+	
+	<insert id="ordRceptInsert" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			INSERT INTO 
+				웹주문접수
+					(
+						접수일자
+						, 일련번호
+						, 장바구니일자
+						, 장바구니번호
+						, 단가사업장
+						, 거래처코드
+						, 품목코드
+						, 단가단위
+						, 단가단위문자
+						, 수량
+						, 그룹수량
+						, 낱개수량
+						, 중량
+						, 단가
+						, 기준단가
+						, 공급가액
+						, 부가세
+						, 합계금액
+						, 납기일자
+						, 주문비고
+						, 착지업체
+						, 출고사업장
+						<!-- , 주문사업장
+						, 주문일자
+						, 주문번호 -->
+						, 거래처재고중량
+						, 등록자
+						, 등록일자
+						, 등록시간
+						, 수정자
+						, 수정일자
+						, 수정시간
+				)
+				VALUES(
+						CONVERT(VARCHAR,GETDATE(),112) <!-- 접수일자 -->
+						, (SELECT ISNULL(MAX(일련번호+1),1) FROM 웹주문접수 WHERE 1=1 AND 접수일자 = #{oDate}) <!-- 일련번호 -->
+						, #{item.oDate} <!-- 장바구니일자 -->
+						, #{item.oSn} <!-- 장바구니번호 -->
+						, #{item.oUnitBplc} <!-- 단가사업장 -->
+						, #{bcncCode} <!-- 거래처코드 -->
+						, #{item.oItemCode} <!-- 품목코드 -->
+						, #{item.oUntpcUnit} <!-- 단가단위 -->
+						, #{item.oUnitChrctr} <!-- 단가단위문자 -->
+						, #{item.oQuantity} <!-- 수량 -->
+						, #{item.oGrpQy} <!-- 그룹수량 -->
+						, #{item.oPieceQy} <!-- 낱개수량 -->
+						, #{item.oWt} <!-- 중량 -->
+						, #{item.oNewUnitpc} <!-- 단가 -->
+						, #{item.oNewUnitpc} <!-- 기준단가 -->
+						, #{item.oSplpcAm} <!-- 공급가액 -->
+						, #{item.oVat} <!-- 부가세 -->
+						, #{item.oSumAmount} <!-- 합계금액 -->
+						, #{item.oItemDedt} <!-- 납기일자 -->
+						, #{item.oItemNote} <!-- 주문비고 -->
+						, #{item.dlvyEntrps} <!-- 착지업체  -->
+						, #{item.oDlivyBplc} <!-- 출고사업장  -->
+						<!-- , #{registBplc} 주문사업장
+						, CONVERT(VARCHAR,GETDATE(),112) 주문일자
+						, (SELECT ISNULL(MAX(주문번호+1),1) FROM 웹주문접수 WHERE 1=1 AND 주문일자 = CONVERT(VARCHAR,GETDATE(),112)) 주문번호  -->
+						, DBO.웹_재고중량_함수(#{item.oItemDedt}, #{item.oItemCode}, 'B', #{item.oDate}, 0) <!-- 거래처재고중량  -->
+						, #{bcncCode} <!-- 등록자 -->
+						, CONVERT(VARCHAR,GETDATE(),112) <!-- 등록일자 -->
+						, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','') <!-- 등록시간 -->
+						, #{bcncCode} <!-- 수정자 -->
+						, CONVERT(VARCHAR,GETDATE(),112) <!-- 수정일자 -->
+						, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','') <!-- 수정시간 -->
+				)
+		</foreach>
+	</insert>
+	
+</mapper>

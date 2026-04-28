@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE tiles-definitions PUBLIC
+		"-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN"
+		"http://tiles.apache.org/dtds/tiles-config_3_0.dtd">
+ 
+<tiles-definitions>
+ 
+	<definition name="layouts-tiles" template="/WEB-INF/jsp/sgis/tiles/default-layouts.jsp">
+		<put-attribute name="header"    	value="/WEB-INF/jsp/sgis/tiles/default-header.jsp" />
+		<put-attribute name="nav"    		value="/WEB-INF/jsp/sgis/tiles/default-nav.jsp" />
+		<put-attribute name="content"   	value="" />
+		<put-attribute name="footer"    	value="/WEB-INF/jsp/sgis/tiles/default-footer.jsp" />
+	</definition>
+ 
+	<definition name="*/*/*.tiles" extends="layouts-tiles">
+		<put-attribute name="content"   value="/WEB-INF/jsp/sgis/{1}/{2}/{3}.jsp" />
+	</definition>
+	
+	
+	<definition name="no-tiles" template="/WEB-INF/jsp/sgis/tiles/default-empty.jsp">
+		<put-attribute name="header"    	value="" />
+		<put-attribute name="body"   	value="" />
+		<put-attribute name="footer"    	value="" />
+	</definition>
+	
+	<definition name="*/*/*/*.tiles" extends="no-tiles">
+		<put-attribute name="body"   value="/WEB-INF/jsp/sgis/{1}/{2}/{3}/{4}.jsp" />
+	</definition>
+  
+</tiles-definitions>

@@ -1,0 +1,9 @@
+@charset "utf-8";
+
+/*************************************/
+/* common */
+/*************************************/
+input[type="text"]:read-only {border:0px; background:transparent;}
+.readOnly{border:0px; background:transparent; text-align:center; }/* IE사용위해 클래스로 지정해서 사용해야함*/
+p em{font-style: italic;}/*공지사항글에서 기울기 추가했을경우 사용자부분 적용*/
+/* header{min-width: 200px;} */

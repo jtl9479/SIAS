@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mn/excel">
+	
+	<select id="dataList" parameterType="hashmap" resultType="hashmap">
+		<foreach collection="frm" item="item" index="index">
+			<![CDATA[
+				SELECT 
+					#{item.rowNum} AS RNUM
+					, #{item.A} AS BPLC_CODE
+					, #{item.B} AS IC_CODE
+					, (SELECT COUNT(*) AS CNT FROM 거래처MASTER CM2 WHERE CM2.거래처코드 = #{item.A} AND CM2.등록사업장 = #{registBplc}) AS BPLC_CNT
+					, (SELECT COUNT(*) AS CNT FROM 품목코드 IC2 WHERE IC2.품목코드 = #{item.B} AND IC2.사업장 = #{registBplc} AND IC2.폐기일자 <= CONVERT(VARCHAR,GETDATE(),112)) AS ITEM_CNT
+					, ISNULL((
+						SELECT TOP 1 UPC.변경일자
+						FROM 단가변동 UPC
+						WHERE UPC.사업장 = #{registBplc}
+						AND UPC.거래처코드 = #{item.A}
+						AND UPC.품목코드 = #{item.B}
+						AND (UPC.거래정지일자 = '00000000' OR UPC.거래정지일자 >=CONVERT(VARCHAR,GETDATE(),112) )
+						AND UPC.변경일자 = (SELECT MAX(UPC2.변경일자) FROM 단가변동 UPC2
+									WHERE UPC.사업장 = UPC2.사업장 
+									AND UPC.품목코드 = UPC2.품목코드
+									AND UPC.거래처코드 = UPC2.거래처코드 
+									AND UPC2.변경일자 <= CONVERT(VARCHAR(8),getdate(),112) )
+					), '0') AS UNTPC_CNT
+					, #{index} AS IDX
+					, #{lastNum} AS LastNum
+			]]>
+			<if test='lastNum != index'>
+				UNION ALL
+			</if>
+			
+		</foreach>
+	</select>
+	
+	<select id="untpcList" parameterType="hashmap" resultType="hashmap">
+		<foreach collection="frm" item="item" index="index">
+			<![CDATA[
+				SELECT TOP 1 
+					(CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END) AS IC_PACKNGUNIT 
+					-- , IC.단위당수량 AS IC_UNITQY
+					, CONVERT(numeric(12,6), IC.단위당수량) AS IC_UNITQY
+					, (CASE WHEN (LEN(RTRIM(UPC.단가단위)) < 1 OR RTRIM(UPC.단가단위) IS NULL) THEN '3' ELSE UPC.단가단위 END)  AS UPC_UNTPCUNIT
+					, CONVERT(VARCHAR(1),UPC.부가세포함유무) UPC_VATINCLSAT
+					, ROUND(UPC.신단가, 4) AS UPC_NEWUNITPC
+					, #{index} AS IDX
+					, #{lastNum} AS LastNum
+					FROM 품목코드 IC JOIN 단가변동 UPC WITH(NOLOCK)
+					ON (
+							IC.사업장 = UPC.사업장
+							AND IC.품목코드 = UPC.품목코드					
+							AND UPC.변경일자 = ( SELECT MAX(UPC2.변경일자) FROM 단가변동 UPC2
+									WHERE UPC.사업장 = UPC2.사업장 
+									AND UPC.품목코드 = UPC2.품목코드
+									AND UPC.거래처코드 = UPC2.거래처코드 
+									AND UPC2.변경일자 <= CONVERT(VARCHAR(8),getdate(),112)) )
+						WHERE 1=1 
+						AND IC.사업장 = #{registBplc}
+						AND IC.품목코드 = #{item.IC_CODE}
+						AND IC.폐기일자 <= CONVERT(VARCHAR,GETDATE(),112)
+						AND (UPC.거래정지일자 = '00000000' OR UPC.거래정지일자 >=CONVERT(VARCHAR,GETDATE(),112) )
+						AND UPC.거래처코드 = #{item.BPLC_CODE}
+					--ORDER BY UPC.단가단위
+			]]>
+			<if test='lastNum != index'>
+				UNION ALL
+			</if>
+			
+		</foreach>
+	</select>
+	
+	<!-- 수주 명세서 INSERT 관련 부분 -->
+	<select id="deClosList" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT 사.사업장 AS BPLC_CODE
+				, ISNULL(MAX(일.수주최종번호),0) AS MAX_NUM
+				, ISNULL(MAX(일.수주최종번호),0) AS CHG_NUM
+				, (CASE WHEN ISNULL(MAX(일.수주최종번호),-1) < 0 THEN 'I' ELSE 'U' END) AS SE
+			FROM 사업장코드 사 LEFT OUTER JOIN 일마감관리 일 WITH(NOLOCK)
+				ON (일.사업장 = 사.사업장
+				AND 일.마감일자 = CONVERT(VARCHAR,GETDATE(),112))
+			GROUP BY 사.사업장
+		]]>
+		<!-- 테스트 -->
+		<!-- AND 일.마감일자 = '20190115') -->
+	</select>
+	
+	<insert id="deClosInsert" parameterType="hashmap">
+		INSERT INTO 일마감관리(사업장, 마감일자, 수주최종번호)
+		VALUES(#{bplcCode}, CONVERT(VARCHAR,GETDATE(),112), #{chgNum});
+	</insert>
+	
+	<update id="deClosUpdate" parameterType="hashmap">
+		UPDATE 일마감관리 SET
+			수주최종번호 = #{chgNum}
+		WHERE 사업장 = #{bplcCode}
+		AND 마감일자 = CONVERT(VARCHAR,GETDATE(),112)
+	</update>
+	
+	<!-- SGIS_KTY_190418 업무 정리  
+		웹주문접수 : 수주사업장의 경우 도착지업체의 출고사업장 정보로 INSERT 해준다.
+		엑셀업로드 : 엑셀업로드 메뉴에서 선택한 사업장 정보(주문사업장 팝업을 통해)가 INSERT된다.
+	-->
+	<update id="insert" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			<!-- 수주명세서 Insert -->
+			INSERT INTO 수주명세서 (
+					수주사업장
+					, 수주일자
+					, 수주일련번호
+					, 거래처코드
+					, 발주자
+					, 접수자
+					, 수주부서
+					, 주문구분
+					, 수주품목코드
+					, 수주단위
+					, 출고수량KG
+					, 수주수량KG
+					, 수주단가
+					, 수주금액
+					, 부가세금액
+					, 출하지시여부
+					, 출하완료여부
+					, 납기일자
+					, 비고
+					, 착지업체
+					, 착지비고
+					, 기준단가
+					, 등록자
+					, 등록일자
+					, 등록시간
+					, 생산지시
+					, 수주수량
+					, 웹접수일자
+					, 웹일련번호
+			)
+			VALUES(
+					#{registBplc} <!-- 수주사업장 -->
+					, CONVERT(VARCHAR,GETDATE(),112)
+ 					, #{item.osInsNo}
+					, #{item.BPLC_CODE}
+					, ''
+					, #{bcncCode}
+					, ''
+					, '11'
+					, #{item.IC_CODE} <!-- 수주품목코드 -->
+					, #{item.UPC_UNTPCUNIT} <!-- 수주단위 -->
+					, 0 <!-- 출고수량KG -->
+					, #{item.EXCEL_WT} <!-- 수주수량KG -->
+					, #{item.UPC_NEWUNITPC} <!-- 수주단가 -->
+					, #{item.SUMAMOUNT} <!-- 수주금액 -->
+					, #{item.VAT} <!-- 부가세금액 -->
+					, 'N'
+					, 'N'
+					, #{item.EXCEL_DEDT} <!-- 납기일자 -->
+					, '' <!-- 비고 -->
+					, #{item.BPLC_CODE} <!-- 착지업체 -->
+					, LEFT(#{item.EXCEL_RN},14) <!-- 착지비고 -->
+					, #{item.UPC_NEWUNITPC} <!-- , 기준단가 -->
+					, #{bcncCode}
+					, CONVERT(VARCHAR,GETDATE(),112)
+					, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+					, 'N'
+					, #{item.EXCEL_QY} <!-- , 수주수량 -->
+					, CONVERT(VARCHAR,GETDATE(),112)
+					, #{item.EX_NO}
+			)
+		</foreach>
+	</update>
+	
+	<insert id="excellFileInsert" parameterType="hashmap">
+		<selectKey keyProperty="EX_NO" resultType="Integer" order="AFTER">
+			 SELECT MAX(일련번호) AS EX_NO FROM 웹엑셀파일
+		</selectKey>
+		INSERT INTO  웹엑셀파일
+			(
+				일련번호
+				, 파일등록일자
+				, 원본파일명
+				, 서버파일명
+				, 서버파일경로
+				, 등록자
+				, 등록일자
+				, 등록시간
+				, 수정자
+				, 수정일자
+				, 수정시간
+			)
+			VALUES(
+				(SELECT ISNULL(MAX(일련번호+1),1) FROM 웹엑셀파일)
+				, #{ordDe}
+				, #{EXCEL_FILE_NM}
+				, #{FILE_REAL_NM}
+				, #{FILE_ABS_PT}
+				, #{bcncCode}
+				, CONVERT(VARCHAR,GETDATE(),112)
+				, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+				, #{bcncCode}
+				, CONVERT(VARCHAR,GETDATE(),112)
+				, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+			);
+	</insert>
+	
+</mapper>

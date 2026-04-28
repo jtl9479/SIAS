@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mn/notice">
+
+	<select id="noticeListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS total
+		FROM 웹공지사항
+		<include refid="noticeWhere" />
+	</select>
+	
+	<select id="noticeList" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[ 
+			SELECT TOP (#{pg} * #{pgCnt})
+				일련번호 AS NOTICEID
+				, 팝업사용 AS POPUPUSEAT
+				, 공지시작일자 AS NOTICEDTFROM
+				, 공지종료일자 AS NOTICEDTTO
+				, 제목 AS NOTICETITLE
+				, 내용 AS NOTICECN
+				, (SELECT TOP 1 RTRIM(V.성명)  
+					FROM 웹개인기본_VIEW V 
+					WHERE V.사번 = 웹공지사항.등록자) AS REGISTERNM
+				, 등록일자 AS RGSDE
+				, 등록시간 AS REGISTTIME
+				, (SELECT TOP 1 RTRIM(V.성명)  
+					FROM 웹개인기본_VIEW V 
+					WHERE V.사번 = 웹공지사항.수정자) AS UPDUSRNM
+				, 수정일자 AS UPDDE
+				, 수정시간 AS UPDTIME
+			FROM 웹공지사항
+		]]>
+		<include refid="noticeWhere" />
+		ORDER BY 팝업사용 DESC, 일련번호 DESC
+	</select>
+	
+	<select id="noticeView" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[ 
+			SELECT 
+				일련번호 AS NOTICEID
+				, 공지시작일자 AS NOTICEDTFROM
+				, 공지종료일자 AS NOTICEDTTO
+				, 제목 AS NOTICETITLE
+				, 내용 AS NOTICECN
+				, (SELECT TOP 1 RTRIM(V.성명)  
+					FROM 웹개인기본_VIEW V 
+					WHERE V.사번 = 웹공지사항.등록자) AS REGISTERNM
+				, 등록일자 AS RGSDE
+				, 등록시간 AS REGISTTIME
+				, (SELECT TOP 1 RTRIM(V.성명)  
+					FROM 웹개인기본_VIEW V 
+					WHERE V.사번 = 웹공지사항.수정자) AS UPDUSRNM
+				, 수정일자 AS UPDDE
+				, 수정시간 AS UPDTIME
+			FROM 웹공지사항
+			WHERE 일련번호 = #{ID}
+		]]>
+	</select>	
+	
+	<!-- 상위 1개 공지사항만 가져옴 -->
+	<select id="noticeTopOneRead" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[ 
+			SELECT TOP 1
+				일련번호 AS NOTICEID
+				, 팝업사용 AS POPUPUSEAT
+				, 제목 AS NOTICETITLE
+				, 내용 AS NOTICECN
+				, 공지시작일자 AS NOTICEDTFROM
+				, 공지종료일자 AS NOTICEDTTO
+				, (SELECT TOP 1 RTRIM(V.성명)  
+					FROM 웹개인기본_VIEW V 
+					WHERE V.사번 = 웹공지사항.수정자) AS UPDUSRNM
+				, 수정일자 AS UPDDE
+				, 수정시간 AS UPDTIME
+			FROM 웹공지사항
+		]]>
+		<include refid="noticeWhere"/>
+	</select>
+	
+	<sql id="noticeWhere">
+		WHERE 1=1
+		<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+			<![CDATA[ AND (CASE 팝업사용 WHEN 'Y' THEN #{searchDtFrom}  ELSE 공지시작일자 END ) >= #{searchDtFrom} ]]>
+		</if>
+		<if test='searchDtTo != null and !searchDtTo.equals("")'>
+			<![CDATA[ AND (CASE 팝업사용 WHEN 'Y' THEN #{searchDtTo}  ELSE 공지시작일자 END ) <= #{searchDtTo} ]]>
+		</if>
+		<if test='searchTitle != null and !searchTitle.equals("")'>
+			<![CDATA[ AND (제목 LIKE UPPER('%'+ #{searchTitle} +'%')
+						OR 내용 LIKE UPPER('%'+ #{searchTitle} +'%'))]]>
+		</if>
+	</sql>
+	
+	<insert id="noticeInsert" parameterType="hashmap">
+		INSERT INTO
+			웹공지사항
+				(
+					일련번호
+					, 공지시작일자
+					, 공지종료일자
+					, 제목
+					, 내용
+					, 등록자
+					, 등록일자
+					, 등록시간
+					, 수정자
+					, 수정일자
+					, 수정시간
+				)
+			VALUES
+				(
+					(SELECT ISNULL(MAX(일련번호+1),1) FROM 웹공지사항)
+					, #{noticeDtFrom}
+					, #{noticeDtTo}
+					, #{noticeTitle}
+					, #{noticeCn}
+					, #{register}
+					, CONVERT(VARCHAR,GETDATE(),112)
+		        	, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+					, #{register}
+					, CONVERT(VARCHAR,GETDATE(),112)
+		        	, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+				)
+	</insert>
+	
+	<update id="noticeUpdate" parameterType="hashmap">
+		UPDATE 웹공지사항 SET
+			공지시작일자 = #{noticeDtFrom}
+			, 공지종료일자 = #{noticeDtTo}
+			, 제목 = #{noticeTitle}
+			, 내용 = #{noticeCn}
+			, 수정자 = #{register}
+			, 수정일자 = CONVERT(VARCHAR,GETDATE(),112)
+			, 수정시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+		WHERE 일련번호 = #{ID}
+	</update>
+	
+	<delete id="noticeDelete" parameterType="hashmap">
+		DELETE 웹공지사항
+		WHERE 일련번호 = #{ID}
+	</delete>
+	
+	<update id="noticeUpdateDel" parameterType="hashmap">
+		UPDATE 웹공지사항 SET
+			 표시유무 = #{noticeAt}
+			, 수정자 = #{register}
+			, 수정일자 = CONVERT(VARCHAR,GETDATE(),112)
+			, 수정시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+		WHERE 일련번호 = #{ID}
+	</update>
+</mapper>

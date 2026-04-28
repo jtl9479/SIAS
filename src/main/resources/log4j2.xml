@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE log4j:configuration PUBLIC "-//APACHE//DTD LOG4J 1.2//EN" "http://logging.apache.org/log4j/1.2/apidocs/org/apache/log4j/xml/doc-files/log4j.dtd">
+<configuration>
+
+	<Appenders>
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %5p [%c] %m%n" />
+        </Console>
+ 
+        <!--추가된 부분-->
+        <Console name="console-infolog" class="org.apache.log4j.ConsoleAppender">
+            <layout class="org.apache.log4j.PatternLayout">
+                <param name="ConversionPattern" value="%d %5p %m%n" />
+            </layout>  
+        </Console>
+        <!-- -->
+ 
+    </Appenders>
+	
+	<Loggers>
+    
+	    <!-- log4jdbc-log4j2 -->
+	    <Logger name="jdbc.sqlonly" level="INFO" />
+	    <Logger name="jdbc.audit" level="WARN" />
+	    <Logger name="jdbc.resultset" level="ERROR" />
+	    <Logger name="jdbc.resultsettable" level="ERROR" />
+	    <Logger name="jdbc.connection" level="ERROR" />
+	    <Logger name="jdbc.sqltiming" level="ERROR" />
+	    <Logger name="org.springframework" level="ERROR" />
+	    
+	    <Root level="INFO">
+            <AppenderRef ref="console" />
+        </Root>
+	    
+    </Loggers>
+    
+</configuration>

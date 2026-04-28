@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn/dcsnOrd">
+
+	<select id="dcsnOrdListCnt" parameterType="hashmap" resultType="int">
+		<!-- GRP_DTNUMBER이 UNION 안되는 오류 발견으로 상단으로 뺌 20210810_KTY-->
+		SELECT COUNT(*) AS total
+			FROM (
+				SELECT *
+					, ROW_NUMBER() OVER (PARTITION BY TAB.OS_DEDT, TAB.OS_ALOCENTRPS ORDER BY TAB.OS_DEDT, TAB.OS_ALOCENTRPS DESC, TAB.IC_NM) AS GRP_DTNUMBER
+					FROM ( 
+						<include refid="dcsnOrdList_1"/>
+						UNION
+						<include refid="dcsnOrdList_2"/>
+						AND OS.출하완료여부 = 'N'
+					) TAB
+			) A
+	</select>
+	
+	<select id="maxDate" parameterType="hashmap" resultType="string">
+		SELECT 
+			<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				ISNULL(MIN(OS.납기일자), #{searchDtFrom}) AS OS_MAX_DATE
+			</if>
+			<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+				ISNULL(MIN(OS.수주일자), #{searchDtFrom}) AS OS_MAX_DATE
+			</if>
+		<include refid="dcsnOrdFrom"/>
+		<include refid="dcsnOrdWhere"/>
+		<if test='listStartDt != null and !listStartDt.equals("")'>
+			<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<![CDATA[ AND OS.납기일자 >= #{listStartDt} ]]>
+			</if>
+			<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+				<![CDATA[ AND OS.수주일자 >= #{listStartDt} ]]>
+			</if>
+		</if>
+	</select>
+	
+	<select id="dcsnOrdList" parameterType="hashmap" resultType="hashmap">
+		
+		SELECT *
+			, ROW_NUMBER() OVER (PARTITION BY TAB.OS_DEDT, TAB.OS_ALOCENTRPS ORDER BY TAB.OS_DEDT, TAB.OS_ALOCENTRPS DESC, TAB.IC_NM) AS GRP_DTNUMBER
+			FROM (
+				<include refid="dcsnOrdList_1"/>
+				<include refid="dcsnOrdListDt"/>
+				UNION
+				<include refid="dcsnOrdList_2"/>
+				<include refid="dcsnOrdListDt"/>
+				AND OS.출하완료여부 = 'N'
+			)TAB
+		
+		ORDER BY TAB.OS_DEDT, TAB.OS_ALOCENTRPS DESC, TAB.IC_NM
+	</select>
+	
+	<sql id="dcsnOrdSelect">
+		SELECT 
+			RTRIM(IC.품목코드) AS IC_CODE
+			, RTRIM(IC.품목명) AS IC_NM
+			, RTRIM(IC.규격) AS IC_STNDRD	
+			, IC.업체전용구분 AS IC_ENT_DVR_SE
+			, IC.생산구분 AS IC_PRDCTN_SE
+			, (CASE WHEN ISDATE(OS.수주일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, OS.수주일자) , 126) 
+					ELSE OS.수주일자 END) AS OS_RCVORDDE
+			, OS.수주일련번호 AS OS_SN 	
+			, OS.수주단가 AS OS_UNTPC	
+			, (CASE WHEN ISDATE(OS.납기일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, OS.납기일자) , 126) 
+					ELSE OS.납기일자 END) AS OS_DEDT
+			, OS.수주수량 AS OS_QUANTITY
+			, OS.수주단위 AS OS_UNIT_CHRCTR
+		
+			, OS.수주금액 AS OS_SUMAMOUNT
+			, OS.착지업체 AS OS_ALOCENTRPS
+			, RTRIM(OS.비고) AS OS_NOTE
+			, OS.수주수량KG AS OS_WT
+			<!-- , RTRIM('') AS dlvyEntrpsNm -->
+			<!-- , (SELECT RTRIM(CM2.상호) FROM 거래처MASTER CM2 WHERE CM2.거래처코드 = OS.착지업체 AND CM2.등록사업장 = OS.수주사업장) AS DLVYENTRPSNM -->
+			<![CDATA[ , (SELECT RTRIM(CM2.상호) FROM 거래처MASTER CM2  WHERE CM2.거래처코드 = (CASE WHEN LEN(OS.착지업체) < 1 THEN OS.거래처코드 ELSE OS.착지업체 END) AND CM2.등록사업장 = OS.수주사업장) AS DLVYENTRPSNM ]]>
+		
+			, COUNT(OS.납기일자) OVER (PARTITION BY OS.착지업체, OS.납기일자)	AS CO			
+			, SUM(OS.수주수량KG) OVER (PARTITION BY OS.착지업체, OS.납기일자)	AS QYSM
+			<!-- GRP_DTNUMBER이 UNION 안되는 오류 발견으로 상단으로 뺌 20210810_KTY-->	
+			<!-- , ROW_NUMBER() OVER (PARTITION BY OS.착지업체, OS.납기일자 ORDER BY OS.납기일자, OS.착지업체 DESC, RTRIM(IC.품목명)) AS GRP_DTNUMBER  -->
+			, SUM(OS.수주금액) OVER (PARTITION BY OS.착지업체, OS.납기일자)	AS AM			
+			, CONVERT(VARCHAR(8),DATEADD(DD, 5, #{listStartDt}),112) AS listStartDt
+	</sql>
+	
+	<sql id="dcsnOrdFrom">
+		<![CDATA[ 
+			FROM 수주명세서 OS JOIN 품목코드 IC WITH(NOLOCK)
+			ON (OS.수주품목코드 = IC.품목코드
+			AND OS.수주사업장 = IC.사업장)
+		]]>
+	</sql>
+	
+	<sql id="dcsnOrdWhere">
+		<![CDATA[
+			WHERE 1=1 
+			AND OS.거래처코드 = #{bcncCode}
+		]]>
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND IC.품목명 LIKE UPPER('%'+ #{searchItemNm} +'%') ]]>
+		</if>
+		<if test='searchEntrpsNm != null and !searchEntrpsNm.equals("")'>
+			<![CDATA[ AND (SELECT RTRIM(CM2.상호) 
+							FROM 거래처MASTER CM2 
+							WHERE CM2.거래처코드 = OS.착지업체 
+							AND CM2.등록사업장 = OS.수주사업장) LIKE UPPER('%'+ #{searchEntrpsNm} +'%') ]]>
+		</if> 
+		<choose>
+			<when test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND OS.납기일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND OS.납기일자 <= #{searchDtTo} ]]>
+				</if>
+			</when>
+			<otherwise>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND OS.수주일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND OS.수주일자 <= #{searchDtTo} ]]>
+				</if>
+			</otherwise>
+		</choose>
+	</sql>
+	
+	<sql id="dcsnOrdListDt">
+		<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+			<![CDATA[ 
+			 	AND OS.납기일자 <= DATEADD(DD, 4, #{listStartDt})
+				AND OS.납기일자 >= #{listStartDt}
+			]]>	
+		</if>
+		<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+			<![CDATA[ 
+			 	AND OS.수주일자 <= DATEADD(DD, 4, #{listStartDt})
+				AND OS.수주일자 >= #{listStartDt}
+			]]>	
+		</if>
+	</sql>
+	
+	<sql id = "dcsnOrdList_1">
+		<include refid="dcsnOrdSelect"/>
+		<include refid="dcsnOrdFrom"/>
+		JOIN  웹출고상세_VIEW WDD
+		ON(OS.수주사업장 = WDD.수주사업장 
+		AND OS.수주일자 = WDD.수주일자
+		AND OS.수주일련번호 = WDD.수주일련번호)
+		<include refid="dcsnOrdWhere"/>
+	</sql>
+	
+	<sql id = "dcsnOrdList_2">
+		<include refid="dcsnOrdSelect"/>
+		<include refid="dcsnOrdFrom"/>
+		<include refid="dcsnOrdWhere"/>
+	</sql>
+	
+</mapper>

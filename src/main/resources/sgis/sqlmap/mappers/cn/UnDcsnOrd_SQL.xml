@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn/unDcsnOrd">
+
+	<select id="dlvyListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(DISTINCT WO.착지업체) AS total
+		<include refid="unDcsnOrdFrom"/>
+		<include refid="unDcsnOrdWhere" />
+	</select>
+	
+	<select id="unDcsnOrdListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS total
+		<include refid="unDcsnOrdFrom"/>
+		<include refid="unDcsnOrdWhere" />
+	</select>
+	
+	<select id="unDcsnOrdList" parameterType="hashmap" resultType="hashmap">
+			SELECT
+				(CASE WHEN ISDATE(WO.접수일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, WO.접수일자) , 126) 
+					ELSE WO.접수일자 END) AS W_RCEPTDE
+				, WO.일련번호 AS W_SN
+				, RTRIM(IC.품목코드) AS IC_CODE
+				, RTRIM(IC.품목명) AS IC_NM
+				, RTRIM(IC.규격) AS IC_STNDRD
+				, WO.단가 AS W_UNTPC
+				, (CASE WHEN ISDATE(WO.접수일자) = 1 THEN 
+						CONVERT(VARCHAR(10), CONVERT (DATE, WO.접수일자) , 126) 
+						ELSE WO.접수일자 END) AS W_ORDERDE
+				, (CASE WHEN ISDATE(WO.납기일자) = 1 THEN 
+						CONVERT(VARCHAR(10), CONVERT (DATE, WO.납기일자) , 126) 
+						ELSE WO.납기일자 END) AS W_DEDT
+				, WO.수량 AS W_QUANTITY
+				, WO.그룹수량 AS W_GRP_QY
+				, WO.낱개수량 AS W_PIECE_QY
+				, WO.거래처재고중량 AS W_C_INVSTTUS <!-- 거래처재고중량 -->
+				, WO.단가단위문자 AS W_UNIT_CHRCTR
+				, WO.단가 AS W_NEWUNITPC
+				, WO.합계금액 AS W_SUMAMOUNT
+				, WO.착지업체 AS W_ALOCENTRPS
+				, WO.주문비고 AS W_NOTE
+				, WO.중량 AS W_WT
+				, IC.단위당수량 AS IC_UNITQY
+				, (CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END) AS IC_PACKNGUNIT
+				, (SELECT RTRIM(CM2.상호) 
+					FROM 거래처MASTER CM2 
+ 					WHERE CM2.거래처코드 = WO.착지업체
+					AND CM2.등록사업장 = WO.출고사업장) AS DLVYENTRPSNM
+				, IC.업체전용구분 AS IC_ENT_DVR_SE
+				, IC.생산구분 AS IC_PRDCTN_SE
+				, COUNT(WO.납기일자) OVER (PARTITION BY WO.착지업체, WO.납기일자)	AS CO			<!-- 건수 -->
+				, SUM(WO.중량) OVER (PARTITION BY WO.착지업체, WO.납기일자)	AS QYSM		<!-- 수량합계 -->
+				, ROW_NUMBER() OVER (PARTITION BY WO.착지업체, WO.납기일자 ORDER BY WO.착지업체 DESC, WO.납기일자, RTRIM(IC.품목명)) AS GRP_DTNUMBER
+				, SUM(WO.합계금액) OVER (PARTITION BY WO.착지업체, WO.납기일자)	AS AM			<!-- 합계 -->
+				<!-- , IC.단위당수량 * (CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END) * DBO.웹_재고중량_함수(WO.납기일자, RTRIM(IC.품목코드), 'C', WO.접수일자, WO.일련번호) AS INVNTRY_QY -->
+				, DBO.웹_재고중량_함수(WO.납기일자, RTRIM(IC.품목코드), 'C', WO.접수일자, WO.일련번호) AS INVNTRY_QY
+				, DATEDIFF(DAY, GETDATE(), WO.납기일자) AS DATE_DIFF
+		<include refid="unDcsnOrdFrom"/>
+		<include refid="unDcsnOrdWhere"/>
+		ORDER BY WO.착지업체 DESC, WO.납기일자, RTRIM(IC.품목명)
+	</select>
+	
+	<select id="dlvyList" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[ 
+			SELECT DISTINCT
+				WO.착지업체 AS W_ALOCENTRPS
+				, (SELECT RTRIM(CM2.상호) 
+					FROM 거래처MASTER CM2 
+					WHERE CM2.거래처코드 = WO.착지업체 
+					AND CM2.등록사업장 = WO.출고사업장) AS DLVY_ENTRPS_NM
+		]]>
+		<include refid="unDcsnOrdFrom"/>
+		<include refid="unDcsnOrdWhere"/>
+		ORDER BY WO.착지업체
+	</select>
+	
+	<sql id="unDcsnOrdFrom">
+		<![CDATA[ 
+			FROM 웹주문접수 WO JOIN 단가변동 UPC WITH(NOLOCK)
+				ON(WO.단가사업장 = UPC.사업장
+				AND WO.거래처코드 = UPC.거래처코드
+				AND WO.품목코드 = UPC.품목코드
+				AND UPC.변경일자 = (SELECT MAX(UPC2.변경일자) FROM 단가변동 UPC2
+							WHERE UPC.사업장 = UPC2.사업장 
+							AND UPC.품목코드 = UPC2.품목코드
+							AND UPC.거래처코드 = UPC2.거래처코드 
+							AND UPC2.변경일자 <= CONVERT(VARCHAR(8),getdate(),112)) )
+							
+				JOIN 품목코드 IC WITH(NOLOCK)
+				ON (UPC.사업장 = IC.사업장
+				AND UPC.품목코드 = IC.품목코드)
+		]]>
+	</sql>
+	
+	<sql id="unDcsnOrdWhere">
+		<![CDATA[
+			WHERE 1=1 
+			AND IC.폐기일자 <= CONVERT(VARCHAR,GETDATE(),112)
+			AND (UPC.거래정지일자 = '00000000' OR UPC.거래정지일자 >=CONVERT(VARCHAR,GETDATE(),112) )
+			AND WO.접수확인 = 'N'
+			AND WO.진행유무 = 'Y'
+			AND WO.접수삭제 = 'N'
+			AND WO.거래처코드 = #{bcncCode}
+		]]>
+		<choose>
+			<when test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND WO.납기일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND WO.납기일자 <= #{searchDtTo} ]]>
+				</if>
+			</when>
+			<otherwise>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND WO.접수일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND WO.접수일자 <= #{searchDtTo} ]]>
+				</if>
+			</otherwise>
+		</choose>
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND IC.품목명 LIKE UPPER('%'+ #{searchItemNm} +'%') ]]>
+		</if>
+		<if test='alocEntrps != null and !alocEntrps.equals("")'>
+			<![CDATA[ AND WO.착지업체 IN (#{alocEntrps}) ]]>
+		</if>
+	</sql>
+	
+	<update id="unDcsnOrdUpdate" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			UPDATE 웹주문접수 SET
+				거래처재고중량 = DBO.웹_재고중량_함수(#{item.wDedt}, #{item.wIcCode}, 'C', #{item.wRceptde}, #{item.wSn})
+				, 주문비고 = #{item.wNote}
+				, 수정자 = #{bcncCode}
+				, 수정일자 = CONVERT(VARCHAR,GETDATE(),112)
+				, 수정시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+			WHERE 접수일자 = #{item.wRceptde}
+				AND 일련번호 = #{item.wSn}
+		</foreach>
+	</update>
+</mapper>

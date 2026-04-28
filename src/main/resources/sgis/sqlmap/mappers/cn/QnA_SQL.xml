@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn/qna">
+	<select id="qnaListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS total
+		<include refid="qnaFrom"/>
+		<include refid="qnaWhere"/>
+	</select>
+	
+	<select id="qnaList" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[ 
+			SELECT TOP (#{pg} * #{pgCnt})
+				WI.일련번호 AS WI_ID 
+				, (CASE WHEN ISDATE(WI.작성일자) = 1 THEN 
+						CONVERT(VARCHAR(10), CONVERT (DATE, WI.작성일자) , 126) 
+						ELSE WI.작성일자 END) AS WI_WRITEDT
+				, WI.거래처코드 AS WI_BCNCCODE
+				, WI.진행상태 AS WI_PROGRSSE
+				, (CASE WHEN WI.진행상태 = 'A' THEN '미확인'
+						WHEN WI.진행상태 = 'B' THEN '확인중'
+						ELSE '확인완료' END) AS WI_PROGRSSECHG
+				, WI.거래처작성자 AS WI_BCNCWRTER
+				, WI.제목 AS WI_TITLE
+				, WI.내용 AS WI_CN
+				, WI.답변일자 AS WI_ANSWERDT
+				, (SELECT TOP 1 RTRIM(V.성명)  
+					FROM 웹개인기본_VIEW V 
+					WHERE V.사번 = WI.답변자) AS WI_ANSWRR
+				, WI.답변 AS WI_ANSWER
+				, WI.등록자 AS WI_REGISTER
+		]]>
+		<include refid="qnaFrom"/>
+		<include refid="qnaWhere"/>
+		ORDER BY WI.작성일자 DESC, WI.일련번호 DESC
+	</select>
+	
+	<select id="qnaView" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[ 
+			SELECT
+				WI.일련번호 AS WI_ID 
+				, (CASE WHEN ISDATE(WI.작성일자) = 1 THEN 
+						CONVERT(VARCHAR(10), CONVERT (DATE, WI.작성일자) , 126) 
+						ELSE WI.작성일자 END) AS WI_WRITEDT
+				, WI.거래처코드 AS WI_BCNCCODE
+				, (CASE WHEN WI.진행상태 = 'A' THEN '미확인'
+						WHEN WI.진행상태 = 'B' THEN '확인중'
+						ELSE '확인완료' END) AS WI_PROGRSSECHG
+				, WI.거래처작성자 AS WI_BCNCWRTER
+				, WI.제목 AS WI_TITLE
+				, WI.내용 AS WI_CN
+				, WI.답변일자 AS WI_ANSWERDT
+				, (SELECT TOP 1 RTRIM(V.성명)  
+					FROM 웹개인기본_VIEW V 
+					WHERE V.사번 = WI.답변자) AS WI_ANSWRR
+				, WI.답변 AS WI_ANSWER
+				, WI.등록자 AS WI_REGISTER
+			FROM 웹거래처문의 WI
+			WHERE WI.일련번호 = #{WI_ID}
+		]]>
+	</select>
+	
+	<sql id="qnaFrom">
+		FROM 웹거래처문의 WI
+	</sql>
+	
+	<sql id="qnaWhere">
+		WHERE WI.거래처코드 = #{bcncCode}
+		<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+			<![CDATA[ AND WI.작성일자 >= #{searchDtFrom} ]]> 
+		</if>
+		<if test='searchDtTo != null and !searchDtTo.equals("")'>
+			<![CDATA[ AND WI.작성일자 <= #{searchDtTo} ]]>
+		</if>
+		<if test='searchTitle != null and !searchTitle.equals("")'>
+			<![CDATA[ 
+				AND (WI.답변 LIKE UPPER('%'+ #{searchTitle} +'%')
+				OR WI.내용 LIKE UPPER('%'+ #{searchTitle} +'%')) 
+			]]>
+		</if>
+	</sql>
+	
+	<insert id="qnaInsert" parameterType="hashmap">
+		INSERT INTO
+			웹거래처문의
+				(
+					일련번호
+					, 작성일자
+					, 거래처코드
+					, 진행상태
+					, 거래처작성자
+					, 제목
+					, 내용
+					, 등록자
+					, 등록일자
+					, 등록시간
+					, 수정자
+					, 수정일자
+					, 수정시간
+				)
+			VALUES
+				(
+					(SELECT ISNULL(MAX(일련번호+1),1) FROM 웹거래처문의)
+					, CONVERT(VARCHAR,GETDATE(),112)
+					, #{WI_BCNCCODE}
+					, 'A'
+					, #{WI_BCNCWRTER}
+					, #{WI_TITLE}
+					, #{WI_CN}
+					, #{WI_BCNCCODE}
+					, CONVERT(VARCHAR,GETDATE(),112)
+					, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+					, #{WI_BCNCCODE}
+					, CONVERT(VARCHAR,GETDATE(),112)
+					, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+				)
+	</insert>
+	
+	<update id="qnaUpdate" parameterType="hashmap">
+		UPDATE 웹거래처문의 SET
+			거래처작성자 = #{WI_BCNCWRTER}
+			, 제목 = #{WI_TITLE}
+			, 내용 = #{WI_CN}
+			, 수정자 = #{WI_BCNCCODE}
+			, 수정일자 = CONVERT(VARCHAR,GETDATE(),112)
+			, 수정시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+		WHERE 일련번호 = #{WI_ID}
+	</update>
+	
+	<delete id="qnaDelete" parameterType="hashmap">
+		DELETE 웹거래처문의
+		WHERE 일련번호 = #{WI_ID}
+	</delete>
+	
+</mapper>

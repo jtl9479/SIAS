@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="popup">
+	
+	<!-- 배송지 -->
+	<select id="dlvyListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS total
+		<include refid="dlvyFrom"/>
+		<include refid="dlvyWhere"/>
+	</select>
+	
+	<select id="dlvyList" parameterType="hashMap" resultType="hashMap">
+		<include refid="dlvySelect"/>
+		<include refid="dlvyFrom"/>
+		<include refid="dlvyWhere"/>
+		ORDER BY EDR.NO
+	</select>	
+	
+	<sql id="dlvySelect">
+		<![CDATA[ 
+			SELECT EDR.착지업체 AS DLVY_ENTRPS
+				, EDR.출고사업장 AS EDR_DLVY_ENTRPS_NO
+				, (SELECT 사업장명칭 FROM 사업장코드 WHERE 사업장 = EDR.출고사업장) AS EDR_DLVY_ENTRPS_NM
+				, (CASE WHEN CM.배송요일체크 = 'TRUE' THEN 'Y' ELSE 'N' END)  AS DLVY_DE_CECK
+				, (CASE WHEN CM.배송월 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_MON
+				, (CASE WHEN CM.배송화 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_TUE
+				, (CASE WHEN CM.배송수 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_WEN
+				, (CASE WHEN CM.배송목 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_THUR
+				, (CASE WHEN CM.배송금 = 'TRUE' THEN 'Y' ELSE 'N' END) AS DLVY_FRI
+				, RTRIM(CM.상호) AS DLVY_ENTRPS_NM
+				, RTRIM(CM.본_주소) AS DLVY_ENTRPS_ADDRESS
+				
+				, (CASE WHEN CM.배송요일체크 = 'TRUE' THEN 
+					ISNULL(CASE WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_1 AND RTRIM(CLDR.공휴유무) = '') > 0 AND 
+							(CASE DATEPART(DW, DATE_TAB.DATE_1) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_1 
+						
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_2 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_2) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_2
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_3 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_3) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_3
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_4 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_4) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_4
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_5 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_5) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_5
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_6 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_6) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_6
+		
+						WHEN (SELECT COUNT(*)  FROM 달력 CLDR WHERE CLDR.사업장 = '20' AND CLDR.일자 = DATE_TAB.DATE_7 AND RTRIM(CLDR.공휴유무) = '') > 0 AND  	
+							(CASE DATEPART(DW, DATE_TAB.DATE_7) WHEN 1 THEN CM.배송일
+																WHEN 2 THEN CM.배송월
+																WHEN 3 THEN CM.배송화
+																WHEN 4 THEN CM.배송수 
+																WHEN 5 THEN CM.배송목
+																WHEN 6 THEN CM.배송금
+																WHEN 7 THEN CM.배송토 END) = 'TRUE' THEN DATE_TAB.DATE_7
+					END, DBO.웹_납기일자_함수(EDR.착지업체, GETDATE()))  
+				
+				 ELSE DBO.웹_납기일자_함수(EDR.착지업체, GETDATE()) END) AS DEADLINE
+		]]>
+	</sql>
+	
+	<sql id="dlvyFrom">
+		<![CDATA[ 
+			FROM 거래처MASTER CM JOIN 업체배송지등록 EDR WITH(NOLOCK)
+			ON (CM.등록사업장 = EDR.출고사업장 
+			AND CM.거래처코드 = EDR.착지업체)
+			
+			, (SELECT CONVERT(VARCHAR , DATEADD(DAY, 1, GETDATE()) ,112) AS DATE_1
+					, CONVERT(VARCHAR , DATEADD(DAY, 2, GETDATE()) ,112) AS DATE_2
+					, CONVERT(VARCHAR , DATEADD(DAY, 3, GETDATE()) ,112) AS DATE_3
+					, CONVERT(VARCHAR , DATEADD(DAY, 4, GETDATE()) ,112) AS DATE_4
+					, CONVERT(VARCHAR , DATEADD(DAY, 5, GETDATE()) ,112) AS DATE_5
+					, CONVERT(VARCHAR , DATEADD(DAY, 6, GETDATE()) ,112) AS DATE_6
+					, CONVERT(VARCHAR , DATEADD(DAY, 7, GETDATE()) ,112) AS DATE_7 ) AS DATE_TAB
+		]]>
+	</sql>
+
+	<sql id="dlvyWhere">
+		<![CDATA[ 
+			WHERE EDR.업체코드 = #{bcncCode}
+		]]>
+		<if test='searchData1 != null and !searchData1.equals("")'>
+			<![CDATA[
+				AND (
+					UPPER(RTRIM(EDR.업체코드)) LIKE UPPER('%'+#{searchData1}+'%') 
+					OR UPPER(RTRIM(CM.상호)) LIKE UPPER('%'+#{searchData1}+'%') 
+					OR UPPER(RTRIM(EDR.착지업체)) LIKE UPPER('%'+#{searchData1}+'%') 
+				)
+			]]>
+		</if>
+		<!-- AND EDR.출고사업장 = (SELECT MIN(EDR2.출고사업장) FROM 업체배송지등록 EDR2 WHERE EDR.업체코드 = EDR2.업체코드 AND EDR.착지업체 = EDR2.착지업체) -->
+		AND EDR.출고사업장 = #{registBplc}
+	</sql>
+	
+	<!-- 사업장 -->
+	<select id="bplcListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS total
+		<include refid="bplcFrom"/>
+		<include refid="bplcWhere"/>
+	</select>
+	
+	<select id="bplcList" parameterType="hashMap" resultType="hashMap">
+		<include refid="bplcSelect"/>
+		<include refid="bplcFrom"/>
+		<include refid="bplcWhere"/>
+		ORDER BY BPLC.사업장
+	</select>	
+
+	<sql id="bplcSelect">
+		SELECT TOP (#{pg} * #{pgCnt})
+			BPLC.사업장 AS BPLC_CODE
+			, BPLC.사업장명칭 AS BPLC_NM
+			, BPLC.사업장약칭 AS BPLC_ABRV
+			, BPLC.세무서코드 AS BPLC_TAXOFCCODE
+			, BPLC.관할세무서 AS BPLC_CMPTNCTAXOFC
+			, BPLC.사업장주소 AS BPLC_ADDRES
+			, BPLC.업태 AS BPLC_BIZCND
+			, BPLC.종목 AS BPLC_ITEM
+	</sql>
+	
+	<sql id="bplcFrom">
+		<![CDATA[ 
+			FROM 사업장코드 BPLC
+		]]>
+	</sql>
+	
+	<sql id="bplcWhere">
+		<![CDATA[ 
+			WHERE 1=1
+		]]>
+		<if test='searchData1 != null and !searchData1.equals("")'>
+			<![CDATA[
+				AND ( 
+					UPPER(RTRIM(BPLC.사업장명칭)) LIKE UPPER('%'+RTRIM(#{searchData1})+'%')
+					OR UPPER(RTRIM(BPLC.사업장)) LIKE UPPER('%'+RTRIM(#{searchData1})+'%')
+				)
+			]]>
+		</if>
+	</sql>
+	
+	<!-- 거래처 -->
+	<select id="bcncListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS total
+		<include refid="bcncFrom"/>
+		<include refid="bcncWhere"/>
+		<if test='searchData1 != null and !searchData1.equals("")'>
+			<![CDATA[
+				AND (
+					UPPER(RTRIM(CM.거래처코드)) LIKE UPPER('%'+#{searchData1}+'%') 
+					OR UPPER(RTRIM(CM.상호)) LIKE UPPER('%'+#{searchData1}+'%') 
+					OR UPPER(RTRIM(CM.사업자번호)) LIKE UPPER('%'+#{searchData1}+'%')  
+				)
+			]]>
+		</if>
+	</select>
+	
+	<select id="bcncList" parameterType="hashMap" resultType="hashMap">
+		SELECT TOP (#{pg} * #{pgCnt})
+			RTRIM(CM.거래처코드) AS WC_BCNC_CODE
+				, RTRIM(CM.상호) AS CM_ENTRPS_NM
+				, RTRIM(CM.사업자번호) AS CM_BIZR_NO
+				, RTRIM(CM.대표자성명) AS CM_CEO_NM
+				, CM.최소주문량 AS CM_MUMM_ORR_QY
+				, CONVERT(numeric, CM.출고정지) AS CM_DLIVY_STOP
+				, CM.등록사업장 AS CM_REG_BPLC
+				, CONVERT(numeric, CM.어음한도) AS CM_BIL_LMT
+				, CONVERT(numeric, CM.외상한도) AS CM_CRDT_LMT
+				<include refid="bcncFrom"/>
+				<include refid="bcncWhere"/>
+				<if test='searchData1 != null and !searchData1.equals("")'>
+					<![CDATA[
+						AND (
+							UPPER(RTRIM(CM.거래처코드)) LIKE UPPER('%'+#{searchData1}+'%') 
+							OR UPPER(RTRIM(CM.상호)) LIKE UPPER('%'+#{searchData1}+'%') 
+							OR UPPER(RTRIM(CM.사업자번호)) LIKE UPPER('%'+#{searchData1}+'%') 
+						)
+					]]>
+				</if>
+			
+		ORDER BY RTRIM(CM.상호)
+	</select>
+	
+	<!-- 
+		제품조회전용 거래처
+		관리자 제품조회 및 주문접수 메뉴에서는 미수금체크 로직이 필수
+		SubQuery로 분리한 이유 : 기존 where 절에서 case 문으로 비교할 경우 속도 저하
+		SubQuery로  data select 이후 기존과 동일한 조건문으로 판단
+		
+		거래처MASTER.출고정지 -> 1:TRUE, 0:FALSE
+	 -->
+	<select id="dvrBcncListCnt" parameterType="hashmap" resultType="int">
+		SELECT 
+			COUNT(*) AS total
+		FROM (
+				SELECT
+					RTRIM(CM.거래처코드) AS WC_BCNC_CODE
+					, RTRIM(CM.상호) AS CM_ENTRPS_NM
+					, RTRIM(CM.사업자번호) AS CM_BIZR_NO
+					, RTRIM(CM.대표자성명) AS CM_CEO_NM
+					, CM.최소주문량 AS CM_MUMM_ORR_QY
+					, CONVERT(numeric, CM.출고정지) AS CM_DLIVY_STOP
+					, CM.등록사업장 AS CM_REG_BPLC
+					, CONVERT(numeric, CM.어음한도) AS CM_BIL_LMT
+					, CONVERT(numeric, CM.외상한도) AS CM_CRDT_LMT
+	
+					, (CASE WHEN CONVERT(numeric, CM.어음한도) IN (1,2)
+						THEN DBO.미수계산_함수(CONVERT(VARCHAR(8), getdate(),112), RTRIM(CM.거래처코드))
+						ELSE 0 END) AS FN_UNCLAMT_CAL
+	
+					, (CASE WHEN CONVERT(numeric, CM.어음한도) = 2 
+						THEN ISNULL(DBO.미수계산_기간(CONVERT(VARCHAR(8),getdate(),112), CONVERT(numeric, CM.외상한도), RTRIM(CM.거래처코드)), 0)
+						ELSE 0 END) AS FN_UNCLAMT_PD
+				<include refid="bcncFrom"/>
+				<include refid="dvrBcncWhere"/>
+		) TAB
+		
+		WHERE 1=1
+		<include refid="dvrBcncTabWhere"/>
+	</select>
+	
+	<select id="dvrBcncList" parameterType="hashMap" resultType="hashMap">
+		SELECT 
+			TOP (#{pg} * #{pgCnt}) TAB.*
+			, (CASE WHEN  
+					( CASE WHEN TAB.CM_REG_BPLC = '60' THEN (CASE WHEN TAB.CM_DLIVY_STOP = 1 THEN 'TRUE' ELSE 'FALSE' END)
+						ELSE 
+							(CASE WHEN TAB.CM_BIL_LMT = 1
+									THEN (CASE WHEN (TAB.CM_CRDT_LMT - TAB.FN_UNCLAMT_CAL) > 0
+											THEN 'TRUE' ELSE 'FALSE' END)
+									WHEN TAB.CM_BIL_LMT = 2 
+									THEN (CASE WHEN TAB.FN_UNCLAMT_CAL > 0
+											THEN 
+												(CASE WHEN ISNULL(TAB.FN_UNCLAMT_PD, 0) > 0
+												THEN 'FALSE'
+												ELSE 'TRUE' END)
+											ELSE 'FALSE' END)
+									ELSE 'FALSE' END)
+						END ) = 'FALSE' THEN 'N'
+				ELSE 'Y' END) AS UNCLAMT_EXST_AT		-- false 가능, true 불가
+		FROM(
+				SELECT
+					RTRIM(CM.거래처코드) AS WC_BCNC_CODE
+					, RTRIM(CM.상호) AS CM_ENTRPS_NM
+					, RTRIM(CM.사업자번호) AS CM_BIZR_NO
+					, RTRIM(CM.대표자성명) AS CM_CEO_NM
+					, CM.최소주문량 AS CM_MUMM_ORR_QY
+					, CONVERT(numeric, CM.출고정지) AS CM_DLIVY_STOP
+					, CM.등록사업장 AS CM_REG_BPLC
+					, CONVERT(numeric, CM.어음한도) AS CM_BIL_LMT
+					, CONVERT(numeric, CM.외상한도) AS CM_CRDT_LMT
+	
+					, (CASE WHEN CONVERT(numeric, CM.어음한도) IN (1,2)
+						THEN DBO.미수계산_함수(CONVERT(VARCHAR(8), getdate(),112), RTRIM(CM.거래처코드))
+						ELSE 0 END) AS FN_UNCLAMT_CAL
+	
+					, (CASE WHEN CONVERT(numeric, CM.어음한도) = 2 
+						THEN ISNULL(DBO.미수계산_기간(CONVERT(VARCHAR(8),getdate(),112), CONVERT(numeric, CM.외상한도), RTRIM(CM.거래처코드)), 0)
+						ELSE 0 END) AS FN_UNCLAMT_PD
+				<include refid="bcncFrom"/>
+				<include refid="dvrBcncWhere"/>
+			) TAB
+			
+		WHERE 1=1
+		<include refid="dvrBcncTabWhere"/>
+		ORDER BY RTRIM(TAB.CM_ENTRPS_NM)
+	</select>
+	
+	<!-- 거래처코드가 여러 사업장에 등록되어있는 경우 20 등록사업장 거래처 정보를 우선으로 가져온다. 
+			20번 사업장에 없으면 그외 사업장 정보로 조회 -->	
+	<sql id="bcncFrom">
+		<![CDATA[ 
+			FROM 거래처MASTER CM
+		]]>
+	</sql>
+
+	<sql id="bcncWhere">
+		WHERE 1=1
+		<!-- 2019.08 검색조건 변경 전 주석
+			AND CM.등록사업장 = (CASE WHEN (SELECT COUNT(*)
+											FROM 거래처MASTER CM2 
+											WHERE CM2.등록사업장 = '20' 
+											AND CM2.거래처코드 = CM.거래처코드) > 0 THEN '20' 
+										ELSE CM.등록사업장 END)
+		-->
+		<choose>
+			<when test='ordBplc!= null and !ordBplc.equals("")'>
+				<![CDATA[	AND RTRIM(CM.등록사업장) LIKE #{ordBplc} ]]>		
+			</when>
+			<otherwise>
+				<![CDATA[	AND RTRIM(CM.등록사업장) LIKE '%' ]]>
+			</otherwise>
+		</choose>
+		
+		AND CM.해지일자 = '00000000'
+	</sql>
+	
+	<!-- 관리자 제품조회 및 주문접수 사업장 선택이 선행된 상태로 진행 -->
+	<sql id="dvrBcncWhere">
+		WHERE 1=1
+		AND CM.등록사업장 = #{ordBplc}
+		AND CM.해지일자 = '00000000'
+	</sql>
+	
+	<sql id="dvrBcncTabWhere">
+		<if test='searchData1 != null and !searchData1.equals("")'>
+			<![CDATA[
+				AND (
+					UPPER(RTRIM(TAB.WC_BCNC_CODE)) LIKE UPPER('%'+#{searchData1}+'%') 
+					OR UPPER(RTRIM(TAB.CM_ENTRPS_NM)) LIKE UPPER('%'+#{searchData1}+'%') 
+					OR UPPER(RTRIM(TAB.CM_BIZR_NO)) LIKE UPPER('%'+#{searchData1}+'%') 
+				)
+			]]>
+		</if>
+	</sql>
+	
+	<update id="password" parameterType="hashmap">
+		<![CDATA[
+		UPDATE  웹거래처 SET
+			LOGIN_PW = EncryptByPassPhrase('SGISERPW', CONVERT(VARCHAR(MAX), #{password}))
+			, 수정자 = #{bcncCode}
+			, 수정일자 = CONVERT(VARCHAR,GETDATE(),112)
+			, 수정시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+		WHERE 
+			1=1
+			AND RTRIM(거래처코드) = #{bcncCode}
+			AND RTRIM(LOGIN_ID) = #{loginId}
+		]]>
+	</update>
+	
+	
+</mapper>

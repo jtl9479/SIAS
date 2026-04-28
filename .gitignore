@@ -1,0 +1,53 @@
+# === 빌드 결과물 ===
+target/
+*.class
+*.war
+*.jar
+dependency-reduced-pom.xml
+
+# === IntelliJ IDEA ===
+*.iml
+*.iws
+*.ipr
+.idea/
+out/
+
+# === Eclipse / STS ===
+.classpath
+.project
+.settings/
+.springBeans
+.factorypath
+.apt_generated/
+bin/
+
+# === VSCode ===
+.vscode/
+
+# === Maven ===
+.mvn/
+!.mvn/wrapper/maven-wrapper.jar
+
+# === 로그 / 임시 / 백업 ===
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+hs_err_pid*.log
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Claude 관련 ===
+.claude/
+CLAUDE.md
+.clauderc
+memory/
+
+# === 업로드/민감 데이터 (혹시 모를 사고 방지) ===
+upload/
+*.pem
+*.key

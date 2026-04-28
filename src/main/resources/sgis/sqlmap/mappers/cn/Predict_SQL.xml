@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn/predict">
+	
+	<select id="predictListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS total
+		<include refid="predictFrom"/>
+		<include refid="predictWhere" />
+	</select>
+	
+	<select id="predictList" parameterType="hashmap" resultType="hashmap">
+		SELECT
+			WP.년월 AS W_DEDT
+			, WP.등록구분 AS W_REGISTSE
+			, ROUND(WP.예상중량1,0) AS W_PREDICTWT1
+			, ROUND(WP.예상중량2,0) AS W_PREDICTWT2
+			, ROUND(WP.예상중량3,0) AS W_PREDICTWT3
+			, ROUND(WP.확정중량1,0) AS W_DCSNWT1
+			, ROUND(WP.확정중량2,0) AS W_DCSNWT2
+			, ROUND(WP.확정중량3,0) AS W_DCSNWT3
+			, WP.거래처비고 AS W_NOTE
+			, WP.관리자비고 AS W_ADMINNOTE
+			, WP.단가단위 AS UPC_UNTPCUNIT
+			, (CASE WHEN WP.단가단위 = 3 THEN 'KG'
+					WHEN WP.단가단위 = 2 THEN 'EA'
+					ELSE 'BOX' END) AS W_UNIT_CHRCTR
+			<!-- // ** 2019.11 단위중량 0일경우 1로 치환해서 가져옴 추가
+			, IC.단위중량 AS IC_UNITWT
+			, IC.단위당수량 AS IC_UNITQY-->
+			, RTRIM(IC.품목코드) AS IC_CODE
+			, RTRIM(IC.품목명) AS IC_NM
+			, RTRIM(IC.규격) AS IC_STNDRD
+			, (CASE IC.단위중량 WHEN 0 THEN 1 ELSE IC.단위중량 END) AS IC_UNITWT
+			, (CASE IC.단위당수량 WHEN 0 THEN 1 ELSE IC.단위당수량 END) AS IC_UNITQY
+			, (CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END) AS IC_PACKNGUNIT
+			, IC.업체전용구분 AS IC_ENT_DVR_SE
+			, IC.생산구분 AS IC_PRDCTN_SE
+		<include refid="predictFrom"/>
+		<include refid="predictWhere" />
+		ORDER BY WP.년월 , RTRIM(IC.품목명)
+	</select>
+	
+	<sql id="predictFrom">
+		<![CDATA[ 
+			FROM 웹거래처수요예측 WP JOIN 품목코드 IC WITH(NOLOCK)
+				ON (WP.품목코드 = IC.품목코드)
+		]]>
+	</sql>
+	
+	<sql id="predictWhere">
+		<![CDATA[
+			WHERE 1=1 
+			AND WP.거래처코드 = #{bcncCode}
+			AND WP.년월 IN (#{thisMonth}, #{nextMonth})
+			AND IC.사업장 = #{registBplc}
+			AND IC.폐기일자 <= CONVERT(VARCHAR,GETDATE(),112)
+		]]>
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND IC.품목명 LIKE UPPER('%'+ #{searchItemNm} +'%') ]]>
+		</if>
+	</sql>
+	
+	
+	<update id="predictUpdate" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			UPDATE 웹거래처수요예측 SET
+				<if test='item.updateYn1.equals("Y")'>
+					확정중량1 = #{item.wDcsnWt1},
+				</if>
+				<if test='item.updateYn2.equals("Y")'>
+					확정중량2 = #{item.wDcsnWt2},
+				</if>
+				<if test='item.updateYn3.equals("Y")'>
+					확정중량3 = #{item.wDcsnWt3},
+				</if>
+				거래처비고 = #{item.wNote},
+				수정자 = #{bcncCode},
+				수정일자 = CONVERT(VARCHAR,GETDATE(),112),
+				수정시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+			WHERE 년월 = #{item.wDedt}
+				AND 품목코드 = #{item.wCode}
+				AND 거래처코드 = #{bcncCode}
+		</foreach>
+	</update>
+	
+</mapper>

@@ -1,0 +1,532 @@
+
+$(document).ready(function(){
+	
+	// 공통으로 [추가], [저장], [삭제] 버튼을 관리
+	$(document).keydown(function(e) {
+		switch (e.which) {
+			case 13: // ENTER 검색
+				if($("#searchFrm").find('input').is(":focus")){
+					if(gfn_isNull(jsSrhBtn)) return false;
+					e.preventDefault();
+					fn_shortCutKeyEvt(jsSrhBtn);
+					break;
+				}
+			case 65: // CTRL + A 추가 
+				if(e.ctrlKey) {
+					e.preventDefault();
+					fn_shortCutKeyEvt(jsInsBtn);
+				}
+				break;
+			case 68: // CTRL + D 삭제
+				if(e.ctrlKey){
+					e.preventDefault();
+					fn_shortCutKeyEvt(jsDelBtn);
+				}
+				break;
+			case 83: // CTRL + S 저장
+				if(e.ctrlKey){  
+					e.preventDefault();
+					fn_shortCutKeyEvt(jsUdtBtn);
+				}
+				break;
+			default:
+				break;
+		}
+	});
+	
+	$("._datepick").datepicker();
+	//$("._monthpick").monthpicker();
+	
+	var jsAlertBoxMsg = $("#alertBoxMsg").val();
+	var jsAlertAfterUrl = $("#alertAfterUrl").val();
+	
+	if(!gfn_isNull(jsAlertBoxMsg)) {
+		alertBoxUrl(jsAlertBoxMsg,'');
+	}
+	
+	if(!gfn_isNull(jsAlertAfterUrl)) {
+		alertBoxUrl('',jsAlertAfterUrl);
+	}
+	
+	if(!gfn_isNull(jsAlertBoxMsg) && !gfn_isNull(jsAlertAfterUrl)) {
+		alertBoxUrl(jsAlertBoxMsg,jsAlertAfterUrl);
+	}
+	
+	// 목록페이지번호
+	var jsListPg = $("#listPg").val();
+	
+	if(gfn_isNull(jsListPg)) {
+		$("#listPg").val(1);
+	}
+	
+	// 리스트 체크박스
+	//체크박스 - 전체선택
+	$("#listChkBoxAll").click(function(){
+		
+		if($("#listChkBox").val() == "N"){
+			$("#listChkBox").prop("checked",true);
+			$("#listChkBoxAllState").val("Y");
+		}else{
+			$("#listChkBox").prop("checked",false);
+			$("#listChkBoxAllState").val("N");
+		}
+	});
+
+	//.datePicker  placeholder 및 max-length 추가
+	/*$("._datepick").attr({
+		placeholder : "0000-00-00",
+		maxlength : "11"
+	}) ;*/
+	
+	// 기관정보와 동일 체크박스 핸들링
+	$(".chk").on("change", function() {
+		fn_chkInfo(this);
+	});
+	
+});
+
+
+
+// 단축키 이벤트
+function fn_shortCutKeyEvt(jsBtn) {
+	if (gfn_isNull(jsBtn)) return;
+	if($(jsBtn).is(":visible") == false) return
+	$(jsBtn).trigger("click");
+}
+
+/* datepicker */
+$.datepicker.setDefaults({
+    dateFormat: 'yy-mm-dd',
+    prevText: '이전 달',
+    nextText: '다음 달',
+    monthNames: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+    monthNamesShort: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
+    dayNames: ['일', '월', '화', '수', '목', '금', '토'],
+    dayNamesShort: ['일', '월', '화', '수', '목', '금', '토'],
+    dayNamesMin: ['일', '월', '화', '수', '목', '금', '토'],
+    showMonthAfterYear: true,
+    changeYear: true,
+    yearSuffix: '년'
+});
+
+// 날짜형식
+function fn_dateFormat(format, date)
+{
+	var date = new Date(date);
+	var week = new Array('일', '월', '화', '수', '목', '금', '토');
+	var dayWeek = week[date.getDay()];
+	
+	var year  = date.getFullYear();
+	var month = date.getMonth() + 1;
+	var day   = date.getDate();
+	var returnVal = "";
+
+	if(parseInt(month) <= 9)
+	{
+		month = "0"+month;
+	}
+	
+	if(parseInt(day) <= 9)
+	{
+		day = "0"+day;
+	}
+	if(format == "YM") {
+		returnVal = year+"."+month;
+	} else if (format == "YMD") {
+		returnVal = year+"."+month+"."+day+".";
+	} else if (format == "YMDW") {
+		returnVal = year+"."+month+"."+day+"("+dayWeek+")";
+	}
+	return returnVal;
+}
+
+
+//현재날짜
+function fn_currentDate(format)
+{
+	var date = new Date();
+	return fn_dateFormat(format, date);
+}
+
+// 이미지 파일 확장자체크
+function fn_inputImgFileChk(fileName)
+{
+	var ext = fileName.split('.').pop().toUpperCase();
+	if($.inArray(ext, ['GIF','PNG','JPG','JPEG']) == -1) {	
+		alertBox('이미지 파일만 업로드 할 수 있습니다.');
+		return false;
+	} else {
+		return true;
+	}
+}
+
+//파일 확장자체크
+function fn_inputFileChk(fileName)
+{
+	var ext = fileName.split('.').pop().toUpperCase();
+	if($.inArray(ext, ['GIF','PNG','JPG','JPEG','TXT','PPT','PPTX','XLSX','XLS','DOC','DOCX','PDF','HWP','HWT']) == -1) {	
+		alertBox('이미지 파일 및 문서파일만 업로드 할 수 있습니다.');
+		return false;
+	} else {
+		return true;
+	}
+}
+
+
+//리스트 체크박스
+function fn_chkBoxAll() 
+{
+	if($("#listChkBoxAllState").val() == "N"){
+		$("input[name=listChkBox]").prop("checked",true);
+		$("input[name=listChkBox]").trigger("change");
+		$("#listChkBoxAllState").val("Y");
+	}else{
+		$("input[name=listChkBox]").prop("checked",false);
+		$("input[name=listChkBox]").trigger("change");
+		$("#listChkBoxAllState").val("N");
+	}
+}
+
+
+
+//파일다운로드
+function fn_downFileChk(fileColName, fileNum, fileType, viewSeq)
+{
+	var jsNM = fileColName+"_NM";	
+	var jsPT = fileColName+"_PT";	
+	var jsSeq = viewSeq;
+	
+	if (fileNum != "0") {
+		jsNM = jsNM +"_"+fileNum;
+		jsPT = jsPT + "_"+fileNum;
+	}
+	
+	var jsFileName = $("#"+jsNM).val();
+	var jsFilePath = $("#"+jsPT).val();
+	var ext = jsFileName.split('.').pop().toUpperCase();
+	
+	if(gfn_isNull(fileType)) fileType = "";
+	if(gfn_isNull(viewSeq)) viewSeq = "0";
+	
+	// fileType 값이 D인 경우에는 데이터컬럼으로 이름만 확인
+	if(fileType == "D"){
+		if (gfn_isNull(jsFileName) ) {
+			alertBox('파일정보 확인을 실패하였습니다.');
+			return;
+		}
+	} else {
+		if (gfn_isNull(jsFileName) || gfn_isNull(jsFilePath)) {
+			alertBox('파일정보 확인을 실패하였습니다.');
+			return;
+		}
+	}
+
+	//이미지의 경우 팝업열기, 문서는 다운로드
+	if($.inArray(ext, ['GIF','PNG','JPG','JPEG']) == -1) {
+		// 파일 다운로드
+		fn_fileDown(jsFileName, jsFilePath)
+	} else {
+		// 팝업에 이미지 표시
+		fn_popImgView(jsFileName, jsFilePath, fileType, fileColName, jsSeq);
+	}
+}
+
+
+// 파일다운받기
+function fn_fileDown(fileName, filePath){
+
+	var comAction = new ComAction('','S');
+	comAction.addParam("FILE_NM",fileName);
+	comAction.addParam("FILE_PT",filePath);
+	comAction.setUrl("/common/fileDown.do");
+	comAction.submit();
+}
+
+// 주소찾기 (주소검색 사용시 해당 페이지에 아래 script 추가 
+// <script src="http://dmaps.daum.net/map_js_init/postcode.v2.js"></script>
+// <script src='https://spi.maps.daum.net/imap/map_js_init/postcode.v2.js'></script>
+// 페이지에 다수의 주소가 존재할 경우 부모태그 ID명을 gubun 매개변수로 지정 중복을 방지한다. 중훈 2018.03.26
+function fn_setAddr(gubun){
+	
+	new daum.Postcode({
+		oncomplete: function(data) {
+			var selectAddr = data.roadAddress; // 도로명 주소 변수
+			var tagId = (!gfn_isNull(gubun)) ? "#" + gubun + " > ": "";
+			
+			// 도로명 주소 선택
+			if(data.userSelectedType == 'R'){
+				// 한글 선택
+				if(data.userLanguageType == 'K'){ selectAddr = data.roadAddress; }
+				// 영문 선택
+				else{ selectAddr = data.roadAddressEnglish; }
+			}
+			// 지번 주소
+			else{
+				// 한글 선택
+				if(data.userLanguageType == 'K'){ selectAddr = data.jibunAddress; }
+				// 영문 선택
+				else{ selectAddr = data.jibunAddressEnglish; }
+			}
+			
+			$(tagId+"input[name*='ADDR1']").val(selectAddr);
+			$(tagId+"input[name*='POST_NUM']").val(data.zonecode);
+			$(tagId+"input[name*='ADDR2']").focus();
+			
+		}
+	}).open();
+}
+
+//숫자유효성(이벤트, 소수점)
+function isNumberKey(evt, point) {
+	 var charCode = (evt.which) ? evt.which : event.keyCode;
+	 var jsPoint = parseInt(point);
+	 if (charCode != 46 && charCode > 31 && (charCode < 48 || charCode > 57))
+	     return false;
+	
+	 // Textbox value       
+	 var _value = event.srcElement.value;       
+	
+	 // 소수점(.)이 두번 이상 나오지 못하게
+	 var _pattern0 = /^\d*[.]\d*$/; // 현재 value값에 소수점(.) 이 있으면 . 입력불가
+	 if (_pattern0.test(_value)) {
+	     if (charCode == 46) {
+	         return false;
+	     }
+	 }
+
+	 // 소수점 지정자리까지만 입력가능
+	 var _pattern2 = null;
+	 
+	 if (jsPoint == 0) {
+	 	_pattern2 = /^\d*[.]\d{0}$/; 
+	 } else if (jsPoint == 1) {
+	 	_pattern2 = /^\d*[.]\d{2}$/; 
+		} else if (jsPoint == 2) {
+			_pattern2 = /^\d*[.]\d{3}$/; 
+		} else if (jsPoint == 6) {
+			_pattern2 = /^\d*[.]\d{7}$/; 
+		}
+			
+	 if (_pattern2.test(_value)) {
+	     //alert("소수점 둘째자리까지만 입력가능합니다.");
+	     return false;
+	 }     
+	 return true;
+}
+
+// 날짜입력 포맷셋팅(Y-M-D)
+function fn_ymdInput(obj){
+	var jsIndex = $("input[name='"+obj.name+"']").index(obj);
+	var jsDate = $("input[name='"+obj.name+"']").eq(jsIndex).val();
+	jsDate = jsDate.replace(/\./g, '');
+	var jsReDate = "";
+
+	if (jsDate.length == 0) return; 
+	if (!isValidNumber(jsDate)) {
+		 alertBoxFocus("숫자만 입력가능합니다.", $("input[name='"+obj.name+"']").eq(jsIndex) );
+		 $("input[name='"+obj.name+"']").eq(jsIndex).val(jsReDate);
+		 return;
+	 }
+
+	if ( !isValidDate(jsDate) ) {
+        //alert('에러');
+        alertBoxFocus("유효하지 않은 날짜입니다.", $("input[name='"+obj.name+"']").eq(jsIndex) );
+        $("input[name='"+obj.name+"']").eq(jsIndex).val(jsReDate);
+        return;
+    } else {
+    	jsReDate = jsDate.substr(0,4)+'.'+ jsDate.substr(4,2)+'.'+ jsDate.substr(6,2);
+    	$("input[name='"+obj.name+"']").eq(jsIndex).val(jsReDate);
+    	return;
+    }
+}
+
+// 숫자입력 체크
+function isValidNumber(param) {
+	if (param.length == 0) return true; 
+	var pattern = new RegExp(/^[0-9-+]+$/);
+	if (pattern.test(param)) {
+		 return true;
+	 } else {
+		 return false;
+	 }
+}
+// 날짜유효성 체크 
+function isValidDate(param) {
+    try
+    {
+        param = param.replace(/-/g,'');
+        // 자리수가 맞지않을때
+        if( isNaN(param) || param.length!=8 ) {
+            return false;
+        }
+         
+        var year = Number(param.substring(0, 4));
+        var month = Number(param.substring(4, 6));
+        var day = Number(param.substring(6, 8));
+
+        var dd = day / 0;
+  
+        if( month<1 || month>12 ) {
+            return false;
+        }
+         
+        var maxDaysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        var maxDay = maxDaysInMonth[month-1];
+         
+        // 윤년 체크
+        if( month==2 && ( year%4==0 && year%100!=0 || year%400==0 ) ) {
+            maxDay = 29;
+        }
+         
+        if( day<=0 || day>maxDay ) {
+            return false;
+        }
+        return true;
+
+    } catch (err) {
+        return false;
+    }                       
+}
+
+
+//숫자포맷
+function fn_numberFormat(obj) {
+	obj.value = fn_comma(fn_uncomma(obj.value));
+}
+
+//숫자 콤마 찍기
+function fn_comma(str) {
+  str = String(str);
+  return str.replace(/(\d)(?=(?:\d{3})+(?!\d))/g, '$1,');
+}
+
+
+//숫자 콤마 풀기
+function fn_uncomma(str) {
+  str = String(str);
+  return str.replace(/[^\d]+/g, '');
+}
+
+// 프린트 팝업 사이즈내역 조절함수
+function printResize() {
+
+    var page = "1270", //1page height
+        $section = $(".section-print"),
+        bttHeight = $section.find(".tbl-btt").outerHeight(),
+        printHeight = $section.outerHeight() + bttHeight + 20,
+        pageCnt = Math.ceil(printHeight / page); // print 출력매수
+
+    $section.css({"padding-bottom" : bttHeight});
+    $section.outerHeight(page * pageCnt);
+}
+
+
+
+function fn_chkInfo(data) {
+	// 선택된 체크박스 이름과 체크속성 정보
+	var object = $(data).find("input[name*=INFO_SET]"),
+		jsName = object.attr("name"),
+		jsStatus = object.prop("checked"),
+		jsDataSet = $(object).data("set");
+
+	if (!gfn_isNull(jsName)) {
+		// 동일한 이름의 체크박스 초기화
+		if (!gfn_isNull(jsDataSet)) { 
+			$("input[name*=" + jsName + "][data-set!=" + jsDataSet + "]").prop("checked", false);	
+		}
+		// 원하는 기관의 대한 정보를 표출
+		if (jsStatus) {
+			//의뢰기관 및 성적서업체와 동일 키 이벤트
+			fn_custInfoCopy(object[0]);
+			
+		} else {
+			var jsKey = jsName.split("_")[0];
+			// 기관정보 초기화
+			fn_custInfoDefalut(jsKey);
+		}
+	}
+}
+
+
+
+//의뢰기관 및 성적서업체와 동일 키 이벤트
+function fn_custInfoCopy(obj) {
+
+	if ($("[name="+ obj.name +"]").is(":checked")) {
+		
+		var objTg = "", 
+			objKey= "",
+			that = $(obj).data("set");
+		
+		// 의뢰업체와 동일
+		if (obj.name.indexOf("B_") != -1 ) {			
+			objTg = "B", objKey = that;
+			$("#FK_" + objTg +"_CUST_BUSSI_ITEM").val($("#FK_"+ objKey +"_CUST_BUSSI_ITEM").val());	// 종목		
+			$("#FK_" + objTg +"_CUST_BUSSI_CONDT").val($("#FK_"+ objKey +"_CUST_BUSSI_CONDT").val());// 업태				
+			$("input[id=FK_" + objTg +"_CUST_PAY_TYPE_CD][value='"+ $("#FK_"+ objKey +"_CUST_PAY_TYPE_CD").val() +"']").prop("checked", true);	// 결제방식
+			$("input[id=FK_" + objTg +"_CUST_BILL_TYPE_CD][value='"+ $("#FK_"+ objKey +"_CUST_BILL_TYPE_CD").val() +"']").prop("checked", true);	// 계산서발행방식
+			
+		// 계산서기관과 동일
+		} else if (obj.name.indexOf("R_") != -1 ) {		
+			objTg = "R", objKey = "A";
+			$("#FK_" + objTg +"_CUST_BUSSI_ITEM").val($("#FK_"+ objKey +"_CUST_BUSSI_ITEM").val());	// 종목		
+			$("#FK_" + objTg +"_CUST_BUSSI_CONDT").val($("#FK_"+ objKey +"_CUST_BUSSI_CONDT").val());	// 업태
+			$("#FK_" + objTg +"_CUST_PAY_TYPE_CD").val($("#FK_"+ objKey +"_CUST_PAY_TYPE_CD").val());	// 결제방식
+			$("#FK_" + objTg +"_CUST_BILL_TYPE_CD").val($("#FK_"+ objKey +"_CUST_BILL_TYPE_CD").val());	// 계산서발행방식
+			$("input[id=FK_" + objTg +"_CUST_INTERVAL_CD][value='"+ $("#FK_"+ objKey +"_CUST_INTERVAL_CD").val() +"']").prop("checked", true);	// 차기교정일자
+			$("input[id=FK_" + objTg +"_CUST_LANG_TYPE_CD][value='"+ $("#FK_"+ objKey +"_CUST_LANG_TYPE_CD").val() +"']").prop("checked", true);	// 성적서 표시언어
+			
+		// 성적서업체와 동일
+		} else if (obj.name.indexOf("TRIP_") != -1 ) {		
+			if ($("[name=TRIP_YN]:checked").val() != "Y") {
+				return false;
+			}
+			objTg = "TRIP", objKey = that;	
+		}
+		
+		// 기관정보
+		$("#FK_" + objTg +"_CUST_CD").val($("#FK_" + objKey +"_CUST_CD").val());
+		$("#FK_" + objTg +"_CUST_NM").val($("#FK_" + objKey +"_CUST_NM").val());
+		$("#FK_" + objTg +"_CUST_POST_NUM").val($("#FK_" + objKey +"_CUST_POST_NUM").val());
+		$("#FK_" + objTg +"_CUST_ADDR1").val($("#FK_" + objKey +"_CUST_ADDR1").val());
+		$("#FK_" + objTg +"_CUST_ADDR2").val($("#FK_" + objKey +"_CUST_ADDR2").val());
+		$("#FK_" + objTg +"_CUST_NUM").val($("#FK_" + objKey +"_CUST_NUM").val());		// 사업자등록번호
+		$("#FK_" + objTg +"_CUST_OWNER").val($("#FK_" + objKey +"_CUST_OWNER").val());	// 대표자
+		// 담당자정보
+		$("#" + objTg +"_KEYMAN_ID").val($("#" + objKey +"_KEYMAN_ID").val());
+		$("#" + objTg +"_KEYMAN_NM").val($("#" + objKey +"_KEYMAN_NM").val());
+		$("#" + objTg +"_KEYMAN_POSI_NM").val($("#" + objKey +"_KEYMAN_POSI_NM").val());	
+		$("#" + objTg +"_KEYMAN_MOBILE_NUM").val($("#" + objKey +"_KEYMAN_MOBILE_NUM").val());
+		$("#" + objTg +"_KEYMAN_FAX_NUM").val($("#" + objKey +"_KEYMAN_FAX_NUM").val());
+		$("#" + objTg +"_KEYMAN_EMAIL").val($("#" + objKey +"_KEYMAN_EMAIL").val());
+		$("#" + objTg +"_POST_NUM").val($("#" + objKey +"_POST_NUM").val());
+		$("#" + objTg +"_ADDR1").val($("#" + objKey +"_ADDR1").val());
+		$("#" + objTg +"_ADDR2").val($("#" + objKey +"_ADDR2").val());
+	}
+	
+	if ($.isFunction(window.fn_custKmPopSet)) {
+		
+		fn_custKmPopSet();	
+	}
+}
+
+
+//기관정보 초기화
+function fn_custInfoDefalut(data) {
+	
+	$.each ($("div[data-cust="+ data +"]").find("dd"), function(idx, dom) {
+		
+		var domObject = $(dom).find("label[class*=radio]");
+
+		// radio
+		if (domObject.length > 0) {
+			domObject.find("input").prop("checked", false);
+			domObject.find("input").eq(0).prop("checked", true);
+			
+	    } else {
+			$(dom).find("input").val("");
+	    }
+	});
+}
+
+

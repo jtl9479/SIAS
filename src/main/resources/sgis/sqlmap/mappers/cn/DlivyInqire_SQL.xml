@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn/dlivyInqire">
+	
+	<select id="dlivyInqireListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS 	total
+		<include refid="dlivyInqireFrom"/>
+		<include refid="dlivyInqireWhere"/>
+	</select>
+	
+	<select id="dlivyInqireList" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			DD.출고사업장 AS dlivyBplc
+			, DD.출고일자 AS dlivyDe
+			, DD.출고일련번호 AS dlivySn
+			, RTRIM(DD.출고품목코드) AS dlivyIcCode
+			, DD.수량 AS qy
+			, DD.구분 AS se
+			, DD.출고단가 AS dlivyUntpc
+			, DD.출고금액 + DD.부가세금액 AS  dlivyDetailAm			<!-- 출고상세총금액 -->
+			, COUNT(DD.출고일자) OVER (PARTITION BY DH.출고일자, DD.출고거래처)	AS co			<!-- 건수 -->
+			, SUM(DD.수량) OVER (PARTITION BY DH.출고일자, DD.출고거래처)	AS qySm		<!-- 수량합계 -->
+			, DD.비고 AS rm
+			, DH.총금액	AS am			<!-- 합계 -->
+			, RTRIM(IC.품목명) AS icNm
+			, RTRIM(IC.규격) AS icStndrd
+			, RTRIM(CM.상호) AS dlvyEntrpsNm
+			<!-- , ROW_NUMBER() OVER (PARTITION BY DD.출고일자 ORDER BY RTRIM(DD.출고품목코드)) AS GRP_DTNUMBER -->
+			, ROW_NUMBER() OVER (PARTITION BY DH.출고일자, DD.출고거래처 ORDER BY DD.출고일자 DESC,DH.출고거래처, IC.품목명) AS GRP_DTNUMBER
+			, CONVERT(VARCHAR(8),DATEADD(DD,-4, #{listEndDt}),112) AS listEndDt
+			
+		<include refid="dlivyInqireFrom"/>
+		<include refid="dlivyInqireWhere"/>
+		<include refid="dlivyInqireWhereListDt"/>
+		
+		ORDER BY DD.출고일자 DESC, DH.출고거래처, IC.품목명 
+	</select>
+	
+	<sql id="dlivyInqireFrom">
+		<![CDATA[  
+			FROM 출고머리 DH JOIN 출고상세 DD WITH(NOLOCK)
+			 ON (DH.출고사업장 = DD.출고사업장
+			 AND DH.출고일자 = DD.출고일자
+			 AND DH.출고일련번호 = DD.출고일련번호  )
+			 
+			 JOIN 거래처MASTER CM WITH(NOLOCK)
+			 ON (DH.출고사업장 = CM.등록사업장
+			 AND DH.출고거래처 = CM.거래처코드)
+			
+			 JOIN 품목코드 IC WITH(NOLOCK)
+			 ON (DD.출고사업장 = IC.사업장
+			 AND DD.출고품목코드 = IC.품목코드)
+		]]>
+	</sql>
+	
+	
+	
+	<sql id="dlivyInqireWhere">
+		<!-- AND DH.출고거래처 = #{searchDlvyEntrps} -->
+		 <![CDATA[ 
+			WHERE 1=1
+				AND RTRIM(IC.품목명) LIKE UPPER('%'+#{searchItemNm}+'%')
+				
+				AND DD.출고일자 >= #{searchDtFrom}
+				AND DD.출고일자 <= #{searchDtTo}
+				AND DD.거래처코드 = #{bcncCode}
+				AND DH.거래명세발행여부 = 'Y'
+		]]>
+	</sql>
+	
+	
+	<sql id="dlivyInqireWhereListDt">
+		 <![CDATA[ 
+			AND DD.출고일자 >= DATEADD(DD,-4, #{listEndDt}) 
+			AND DD.출고일자 <= #{listEndDt}
+		]]>
+	</sql>
+
+
+	
+
+</mapper>

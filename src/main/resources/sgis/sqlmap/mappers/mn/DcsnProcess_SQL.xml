@@ -1,0 +1,568 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mn/dcsnProcess">
+	<!-- 확인 -->
+	<select id="dcsnProcessListCnt" parameterType="hashmap" resultType="int">
+		SELECT 
+			COUNT(*) AS 	total
+		<include refid="dcsnProcessFrom"/>
+		<include refid="dcsnProcessWhere"/>
+	</select>
+	
+	<!-- 미확인 -->
+	<select id="dcsnProcessUnListCnt" parameterType="hashmap" resultType="int">
+		SELECT 
+			COUNT(*) AS 	total
+		<include refid="dcsnProcessUnFrom"/>
+		<include refid="dcsnProcessUnWhere"/>
+	</select>
+	
+	<!-- 확인 -->
+	<select id="maxDate" parameterType="hashmap" resultType="string">
+		SELECT 
+			<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				ISNULL(MIN(OS.납기일자), #{searchDtFrom}) AS OS_MAX_DATE
+			</if>
+			<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+				ISNULL(MIN(OS.수주일자), #{searchDtFrom}) AS OS_MAX_DATE
+			</if>
+		<include refid="dcsnProcessFrom"/>
+		<include refid="dcsnProcessWhere"/>
+		<if test='listStartDt != null and !listStartDt.equals("")'>
+			<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<![CDATA[ AND OS.납기일자 >= #{listStartDt} ]]>
+			</if>
+			<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+				<![CDATA[ AND OS.수주일자 >= #{listStartDt} ]]>
+			</if>
+		</if>
+	</select>
+	
+	<!-- 미확인 -->
+	<select id="unMaxDate" parameterType="hashmap" resultType="string">
+		SELECT 
+			<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				ISNULL(MIN(WO.납기일자), #{searchDtFrom}) AS W_MAX_DATE
+			</if>
+			<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+				ISNULL(MIN(WO.접수일자), #{searchDtFrom}) AS W_MAX_DATE
+			</if>
+		<include refid="dcsnProcessUnFrom"/>
+		<include refid="dcsnProcessUnWhere"/>
+		<if test='listStartDt != null and !listStartDt.equals("")'>
+			<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<![CDATA[ AND WO.납기일자 >= #{listStartDt} ]]>
+			</if>
+			<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+				<![CDATA[ AND WO.접수일자 >= #{listStartDt} ]]>
+			</if>
+		</if>
+	</select>
+	
+	<!-- 확인리스트 -->
+	<select id="dcsnProcessList" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT
+				(CASE WHEN ISDATE(OS.납기일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, OS.납기일자) , 126) 
+					ELSE OS.납기일자 END) AS OS_DEDT
+				, OS.거래처코드 AS OS_BCNCCODE 
+				, ( SELECT RTRIM(CM2.상호) 
+					FROM 거래처MASTER CM2 
+					WHERE CM2.등록사업장 = OS.수주사업장
+					AND CM2.거래처코드 = OS.거래처코드) AS OS_BCNC
+				, ( CASE WHEN LEN(OS.착지업체) < 1 THEN RTRIM(OS.거래처코드) ELSE RTRIM(OS.착지업체) END) AS OS_ENTRPSCODE
+				, ( SELECT RTRIM(CM2.상호) 
+					FROM 거래처MASTER CM2 
+					WHERE CM2.등록사업장 = OS.수주사업장
+					AND CM2.거래처코드 = ( CASE WHEN LEN(OS.착지업체) < 1 
+											THEN RTRIM(OS.거래처코드)
+											ELSE RTRIM(OS.착지업체) END)) AS OS_DLVYENTRPS
+				, OS.수주품목코드 AS OS_CODE
+				, OS.수주단위 AS OS_UNIT
+				, OS.수주수량KG AS OS_QUANTITY
+				, OS.수주단가 AS OS_UNTPC
+				, OS.수주금액 AS OS_SUMAMOUNT --부가세 포함한 합계 화면 표시
+				--, OS.착지비고 AS OS_NOTE
+				, OS.비고 AS OS_NOTE
+				, OS.등록일자
+				, RTRIM(IC.품목명) AS IC_NM
+				, RTRIM(IC.규격) AS IC_STNDRD
+				, IC.업체전용구분 AS IC_ENT_DVR_SE
+				, IC.생산구분 AS IC_PRDCTN_SE
+				, SUM(OS.수주수량KG) OVER (PARTITION BY OS.납기일자, OS.거래처코드, OS.착지업체) AS GRP_QUANTITYAM
+				, SUM(OS.수주금액) OVER (PARTITION BY OS.납기일자, OS.거래처코드, OS.착지업체) AS GRP_SUMAM
+				, COUNT(OS.납기일자) OVER (PARTITION BY OS.납기일자, OS.거래처코드, OS.착지업체)	AS CO
+				, ROW_NUMBER() OVER (PARTITION BY OS.납기일자, OS.거래처코드, OS.착지업체 ORDER BY OS.납기일자, OS.거래처코드 DESC, OS.착지업체 DESC, RTRIM(IC.품목명)) AS GRP_DTNUMBER
+				, CONVERT(VARCHAR(8),DATEADD(DD, 5, #{listStartDt}),112) AS listStartDt
+		]]>
+		<include refid="dcsnProcessFrom"/>
+		<include refid="dcsnProcessWhere"/>
+		<include refid="dcsnProcessListDt"/>
+		ORDER BY OS.납기일자, OS.거래처코드 DESC, OS.착지업체 DESC, RTRIM(IC.품목명)
+	</select>
+	
+	<sql id="dcsnProcessFrom">
+		<![CDATA[
+			FROM 수주명세서 OS JOIN 품목코드 IC WITH(NOLOCK)
+			ON ( OS.수주사업장 = IC.사업장
+			AND OS.수주품목코드 = IC.품목코드 )
+			JOIN 사업장코드 BPLC WITH(NOLOCK)
+			ON(OS.수주사업장 = BPLC.사업장)
+		]]>
+	</sql>
+	
+	<!-- /*WHERE OS.수주사업장 = 주문사업장(스토리보드 명칭 출고사업장)
+			AND OS.거래처코드 = 거래처 bcncCode
+			AND OS.착지업체 =  배송지업체
+			AND (OS.수주일자(주문일자), OS.납기일자(납기일자)) = YYYYMMDD
+			AND IC.품목명*/ -->
+	<sql id="dcsnProcessWhere">
+		<![CDATA[
+			WHERE 1=1
+		]]>
+		
+		<!-- 출고사업장 -->
+		<if test='searchBplcSe != null and searchBplcSe.equals("N")'>
+			<if test='searchBplcNm != null and !searchBplcNm.equals("")'>
+				<![CDATA[ AND
+				( 
+					UPPER(RTRIM(BPLC.사업장명칭)) LIKE UPPER('%'+ #{searchBplcNm} +'%')
+					OR UPPER(RTRIM(BPLC.사업장)) LIKE UPPER('%'+ #{searchBplcNm} +'%') 
+				)]]>
+			</if>
+		</if>
+		<if test='searchBplcSe != null and searchBplcSe.equals("Y")'>
+			<if test='searchBplcCode != null and !searchBplcCode.equals("")'>
+				<![CDATA[ AND  OS.수주사업장 = #{searchBplcCode} ]]>
+			</if>
+		</if>
+		
+		<!-- 거래처 -->
+		<if test='searchBcncSe != null and searchBcncSe.equals("N")'>
+			<if test='searchBcncNm != null and !searchBcncNm.equals("")'>
+				<![CDATA[ 
+					AND 
+						(
+							(SELECT UPPER(RTRIM(CM2.상호)) 
+							FROM 거래처MASTER CM2
+							WHERE CM2.등록사업장 = OS.수주사업장
+							AND CM2.거래처코드 = OS.거래처코드) LIKE UPPER('%'+ RTRIM(#{searchBcncNm}) +'%')
+							OR
+							(SELECT UPPER(RTRIM(CM2.거래처코드)) 
+							FROM 거래처MASTER CM2
+							WHERE CM2.등록사업장 = OS.수주사업장
+							AND CM2.거래처코드 = OS.거래처코드) LIKE UPPER('%'+ RTRIM(#{searchBcncNm}) +'%')
+						) 
+				]]>
+			</if>
+		</if>
+		<if test='searchBcncSe != null and searchBcncSe.equals("Y")'>
+			<if test='searchBcncCode != null and !searchBcncCode.equals("")'>
+				<![CDATA[ AND OS.거래처코드 = #{searchBcncCode} ]]>
+			</if>
+		</if>
+		
+		<!-- 도착지업체(배송지업체) -->
+		<if test='searchDlvySe != null and searchDlvySe.equals("N")'>
+			<if test='searchEntrpsNm != null and !searchEntrpsNm.equals("")'>
+				<![CDATA[ 
+						AND 
+							( 
+								( SELECT UPPER(RTRIM(CM2.상호)) 
+								FROM 거래처MASTER CM2 
+								WHERE CM2.등록사업장 = OS.수주사업장
+								AND CM2.거래처코드 = ( CASE WHEN LEN(OS.착지업체) < 1 
+														THEN RTRIM(OS.거래처코드)
+														ELSE RTRIM(OS.착지업체) END)) LIKE UPPER('%'+ RTRIM(#{searchEntrpsNm}) +'%') 
+								OR						
+								( SELECT UPPER(RTRIM(CM2.거래처코드)) 
+								FROM 거래처MASTER CM2 
+								WHERE CM2.등록사업장 = OS.수주사업장
+								AND CM2.거래처코드 = ( CASE WHEN LEN(OS.착지업체) < 1 
+														THEN RTRIM(OS.거래처코드)
+														ELSE RTRIM(OS.착지업체) END)) LIKE UPPER('%'+ RTRIM(#{searchEntrpsNm}) +'%')
+							)										
+				]]>
+			</if>
+		</if>
+		<if test='searchDlvySe != null and searchDlvySe.equals("Y")'>
+			<if test='searchDlvyEntrps != null and !searchDlvyEntrps.equals("")'>
+				<![CDATA[ AND OS.착지업체 = #{searchDlvyEntrps} ]]>
+			</if>
+		</if>
+		
+		<!-- 제품명 -->
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND ( 
+					UPPER(RTRIM(IC.품목명)) LIKE UPPER('%'+ RTRIM(#{searchItemNm}) +'%')
+					OR UPPER(RTRIM(IC.품목코드)) LIKE UPPER('%'+ RTRIM(#{searchItemNm}) +'%')
+				
+				) ]]>
+		</if>
+		
+		<!-- 주문일자, 납기일자 selectBox  -->
+		<choose>
+			<when test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND OS.납기일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND OS.납기일자 <= #{searchDtTo} ]]>
+				</if>
+			</when>
+			<otherwise>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND OS.수주일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND OS.수주일자 <= #{searchDtTo} ]]>
+				</if>
+			</otherwise>
+		</choose>
+	</sql>
+	
+	<sql id="dcsnProcessListDt">
+		<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+			<![CDATA[ 
+			 	AND OS.납기일자 <= DATEADD(DD, 4, #{listStartDt})
+				AND OS.납기일자 >= #{listStartDt}
+			]]>	
+		</if>
+		<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+			<![CDATA[ 
+			 	AND OS.수주일자 <= DATEADD(DD, 4, #{listStartDt})
+				AND OS.수주일자 >= #{listStartDt}
+			]]>	
+		</if>
+	</sql>
+	
+	<!-- 미확인리스트 -->
+	<select id="dcsnProcessUnList" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			(CASE WHEN WO.등록구분 = 'C' THEN '거래처' ELSE '관리자' END) AS W_REGISTSE
+			, WO.단가사업장 AS W_UNIT_BPLC
+			, (CASE WHEN ISDATE(WO.접수일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, WO.접수일자) , 126) 
+					ELSE WO.접수일자 END) AS W_RCEPTDE
+			, WO.일련번호 AS W_SN
+			, (CASE WHEN ISDATE(WO.납기일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, WO.납기일자) , 126) 
+					ELSE WO.납기일자 END) AS W_DEDT
+			, WO.거래처코드 AS W_BCNCCODE
+			, ( SELECT RTRIM(CM2.상호) 
+				FROM 거래처MASTER CM2 
+				WHERE CM2.등록사업장 = WO.단가사업장
+				AND CM2.거래처코드 = WO.거래처코드) AS CM_BCNC
+			, WO.착지업체 AS W_ENTRPSCODE
+			, (SELECT RTRIM(CM2.상호) 
+				FROM 거래처MASTER CM2 
+				WHERE CM2.거래처코드 = WO.착지업체 
+				AND CM2.등록사업장 = WO.단가사업장) AS CM_DLVYENTRPS
+			, WO.품목코드 AS W_CODE
+			, RTRIM(IC.품목명) AS IC_NM
+			, RTRIM(IC.규격) AS IC_STNDRD
+			, WO.단가단위 AS UPC_NEWUNITPC
+			<!-- , WO.수량 AS W_QUANTITY -->
+			<!-- , (CASE WHEN RTRIM(WO.단가단위) = 1 THEN WO.그룹수량
+				WHEN RTRIM(WO.단가단위) = 2 THEN WO.낱개수량
+				ELSE WO.중량 END) AS W_QUANTITY -->
+			, WO.그룹수량 AS W_QUANTITY
+			, WO.그룹수량 AS W_GRP_QY
+			, WO.낱개수량 AS W_PIECE_QY
+			, WO.중량 AS W_WT
+			, WO.단가 AS W_UNTPC
+			, WO.단가단위문자 AS W_UNIT_CHRCTR
+			, WO.합계금액 AS W_SUMAMOUNT
+			, WO.주문비고 AS W_NOTE
+			, IC.업체전용구분 AS IC_ENT_DVR_SE
+			, IC.생산구분 AS IC_PRDCTN_SE
+			, SUM(WO.수량) OVER (PARTITION BY WO.납기일자, WO.거래처코드, WO.착지업체) AS GRP_QUANTITYAM
+			, SUM(WO.합계금액) OVER (PARTITION BY WO.납기일자, WO.거래처코드, WO.착지업체) AS GRP_SUMAM
+			, COUNT(WO.납기일자) OVER (PARTITION BY WO.납기일자, WO.거래처코드, WO.착지업체)	AS CO
+			, ROW_NUMBER() OVER (PARTITION BY WO.납기일자, WO.거래처코드, WO.착지업체 ORDER BY WO.납기일자, WO.거래처코드 DESC, WO.착지업체 DESC, RTRIM(IC.품목명)) AS GRP_DTNUMBER
+			, CONVERT(VARCHAR(8),DATEADD(DD, 5, #{listStartDt}),112) AS listStartDt
+			, DATEDIFF(DAY, GETDATE(), WO.납기일자) AS DATE_DIFF
+			<!-- , (CASE WO.단가단위 WHEN '1' THEN DBO.웹_재고중량_함수(WO.납기일자, RTRIM(IC.품목코드), 'C', WO.접수일자, WO.일련번호) / IC.단위당수량 / (CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END)
+							WHEN '2' THEN DBO.웹_재고중량_함수(WO.납기일자, RTRIM(IC.품목코드), 'C', WO.접수일자, WO.일련번호) / IC.단위당수량
+							WHEN '3' THEN DBO.웹_재고중량_함수(WO.납기일자, RTRIM(IC.품목코드), 'C', WO.접수일자, WO.일련번호) END) AS INVNTRY_QY -->
+			, DBO.웹_재고중량_함수(WO.납기일자, RTRIM(IC.품목코드), 'C', WO.접수일자, WO.일련번호) AS INVNTRY_QY
+		<include refid="dcsnProcessUnFrom"/>
+		<include refid="dcsnProcessUnWhere"/>
+		<include refid="dcsnProcessUnListDt"/>
+		ORDER BY WO.납기일자, WO.거래처코드 DESC, WO.착지업체 DESC, RTRIM(IC.품목명)
+	</select>
+	
+	<sql id="dcsnProcessUnFrom">
+		<![CDATA[
+			FROM 웹주문접수 WO JOIN 품목코드 IC WITH(NOLOCK)
+			ON (WO.단가사업장 = IC.사업장
+			AND WO.품목코드 = IC.품목코드)
+			JOIN 사업장코드 BPLC WITH(NOLOCK)
+			ON(WO.단가사업장 = BPLC.사업장)
+		]]>
+	</sql>
+	
+	<sql id="dcsnProcessUnWhere">
+		<![CDATA[
+			WHERE 1=1
+			AND WO.접수확인 = 'N'
+			AND WO.접수삭제 = 'N'
+			AND WO.진행유무 = 'Y'
+		]]>
+		<if test='searchBplcSe != null and searchBplcSe.equals("N")'>
+			<if test='searchBplcNm != null and !searchBplcNm.equals("")'>
+				<![CDATA[ 
+					AND (
+						UPPER(BPLC.사업장명칭) LIKE UPPER('%'+ RTRIM(#{searchBplcNm}) +'%')
+						OR UPPER(BPLC.사업장) LIKE UPPER('%'+ RTRIM(#{searchBplcNm}) +'%') 
+						)
+				]]> 
+			</if>
+		</if>
+		<if test='searchBplcSe != null and searchBplcSe.equals("Y")'>
+			<if test='searchBplcCode != null and !searchBplcCode.equals("")'>
+				<![CDATA[ AND WO.단가사업장 = #{searchBplcCode} ]]>
+			</if>
+		</if>
+		<if test='searchBcncSe != null and searchBcncSe.equals("N")'>
+			<if test='searchBcncNm != null and !searchBcncNm.equals("")'>
+				<![CDATA[ 
+					AND (
+								( SELECT UPPER(RTRIM(CM2.상호)) 
+								FROM 거래처MASTER CM2 
+								WHERE CM2.등록사업장 = WO.단가사업장
+								AND CM2.거래처코드 = WO.거래처코드) LIKE UPPER('%'+ RTRIM(#{searchBcncNm}) +'%')
+								OR
+								( SELECT UPPER(RTRIM(CM2.거래처코드)) 
+								FROM 거래처MASTER CM2 
+								WHERE CM2.등록사업장 = WO.단가사업장
+								AND CM2.거래처코드 = WO.거래처코드) LIKE UPPER('%'+ RTRIM(#{searchBcncNm}) +'%')
+							) 
+				]]>
+			</if>
+		</if>
+		<if test='searchBcncSe != null and searchBcncSe.equals("Y")'>
+			<if test='searchBcncCode != null and !searchBcncCode.equals("")'>
+				<![CDATA[ AND WO.거래처코드 = #{searchBcncCode} ]]>
+			</if>
+		</if>
+		<if test='searchDlvySe != null and searchDlvySe.equals("N")'>
+			<if test='searchEntrpsNm != null and !searchEntrpsNm.equals("")'>
+				<![CDATA[ 
+					AND 
+						(
+							(SELECT UPPER(RTRIM(CM2.상호)) 
+								FROM 거래처MASTER CM2 
+								WHERE CM2.거래처코드 = WO.착지업체 
+								AND CM2.등록사업장 = WO.단가사업장) LIKE UPPER('%'+ RTRIM(#{searchEntrpsNm}) +'%')
+							OR (SELECT UPPER(RTRIM(CM2.거래처코드)) 
+								FROM 거래처MASTER CM2 
+								WHERE CM2.거래처코드 = WO.착지업체 
+								AND CM2.등록사업장 = WO.단가사업장) LIKE UPPER('%'+ RTRIM(#{searchEntrpsNm}) +'%')	
+							
+						)		
+					]]>
+			</if>
+		</if>
+		<if test='searchDlvySe != null and searchDlvySe.equals("Y")'>
+			<if test='searchDlvyEntrps != null and !searchDlvyEntrps.equals("")'>
+				<![CDATA[ AND WO.착지업체 = #{searchDlvyEntrps} ]]>
+			</if>
+		</if>
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND ( 
+					UPPER(RTRIM(IC.품목명)) LIKE UPPER('%'+ RTRIM(#{searchItemNm}) +'%')
+					OR UPPER(RTRIM(IC.품목코드)) LIKE UPPER('%'+ RTRIM(#{searchItemNm}) +'%')
+				
+				) ]]>
+		</if>
+		<choose>
+			<when test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND WO.납기일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND WO.납기일자 <= #{searchDtTo} ]]>
+				</if>
+			</when>
+			<otherwise>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND WO.접수일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND WO.접수일자 <= #{searchDtTo} ]]>
+				</if>
+			</otherwise>
+		</choose>
+	</sql>
+	
+	<sql id="dcsnProcessUnListDt">
+		<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+			<![CDATA[ 
+				AND WO.납기일자 <= DATEADD(DD, 4, #{listStartDt})
+				AND WO.납기일자 >= #{listStartDt}
+			]]>	
+		</if>
+		<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+			<![CDATA[ 
+				AND WO.접수일자 <= DATEADD(DD, 4, #{listStartDt})
+				AND WO.접수일자 >= #{listStartDt}
+			]]>	
+		</if>
+	</sql>
+	
+	<update id="dcsnProcessDelete" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			UPDATE 웹주문접수 SET
+				접수삭제 = 'Y'
+				, 수정자 = #{bcncCode}
+				, 수정일자 = CONVERT(VARCHAR,GETDATE(),112)
+				, 수정시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+			WHERE 접수일자 = #{item.wRceptde}
+				AND 일련번호 = #{item.wSn}
+		</foreach>
+	</update>
+	
+	<!-- 수주 명세서 INSERT 관련 부분 -->
+	<select id="deClosList" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+			SELECT 사.사업장 AS BPLC_CODE
+				, ISNULL(MAX(일.수주최종번호),0) AS MAX_NUM
+				, ISNULL(MAX(일.수주최종번호),0) AS CHG_NUM
+				, (CASE WHEN ISNULL(MAX(일.수주최종번호),-1) < 0 THEN 'I' ELSE 'U' END) AS SE
+			FROM 사업장코드 사 LEFT OUTER JOIN 일마감관리 일 WITH(NOLOCK)
+				ON (일.사업장 = 사.사업장
+				AND 일.마감일자 = CONVERT(VARCHAR,GETDATE(),112))
+			GROUP BY 사.사업장
+		]]>
+		<!-- 테스트 -->
+		<!-- AND 일.마감일자 = '20190115') -->
+	</select>
+	
+	<insert id="deClosInsert" parameterType="hashmap">
+		INSERT INTO 일마감관리(사업장, 마감일자, 수주최종번호)
+		VALUES(#{bplcCode}, CONVERT(VARCHAR,GETDATE(),112), #{chgNum});
+	</insert>
+	
+	<update id="deClosUpdate" parameterType="hashmap">
+		UPDATE 일마감관리 SET
+			수주최종번호 = #{chgNum}
+		WHERE 사업장 = #{bplcCode}
+		AND 마감일자 = CONVERT(VARCHAR,GETDATE(),112)
+	</update>
+	
+	<!-- SGIS_KTY_190418 업무 정리
+		웹주문접수 : 수주사업장의 경우 도착지업체의 출고사업장 정보로 INSERT 해준다.
+		엑셀업로드 : 엑셀업로드 메뉴에서 선택한 사업장 정보(주문사업장 팝업을 통해)가 INSERT된다.
+	-->
+	<update id="dcsnProcessInsert" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			<!-- 수주명세서 Insert -->
+			INSERT INTO 수주명세서 (
+					수주사업장
+					, 수주일자
+					, 수주일련번호
+					, 거래처코드
+					, 발주자
+					, 접수자
+					, 수주부서
+					, 주문구분
+					, 수주품목코드
+					, 수주단위
+					, 출고수량KG
+					, 수주수량KG
+					, 수주단가
+					, 수주금액
+					, 부가세금액
+					, 출하지시여부
+					, 출하완료여부
+					, 납기일자
+					, 비고
+					, 착지업체
+					, 착지비고
+					, 기준단가
+					, 등록자
+					, 등록일자
+					, 등록시간
+					, 생산지시
+					, 수주수량
+					, 웹접수일자
+					, 웹일련번호
+			)
+			SELECT 
+				WO.출고사업장
+				, CONVERT(VARCHAR,GETDATE(),112)
+				, #{item.osInsNo}
+				, WO.거래처코드
+				, ''
+				, #{bcncCode}
+				, ''
+				, '10'
+				, WO.품목코드
+				, WO.단가단위문자
+				, 0
+				, WO.중량
+				, WO.단가
+				, WO.공급가액
+				, WO.부가세
+				, 'N'
+				, 'N'
+				, WO.납기일자
+				, ''
+				, WO.착지업체
+				, LEFT(WO.주문비고,14)
+				, WO.기준단가
+				, #{bcncCode}
+				, CONVERT(VARCHAR,GETDATE(),112)
+				, REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+				, 'N'
+				, (CASE WHEN WO.단가단위 = 1 THEN WO.그룹수량
+					WHEN WO.단가단위 = 2 THEN WO.낱개수량
+					ELSE WO.중량 END)
+				, WO.접수일자
+				, WO.일련번호
+			FROM 웹주문접수 WO
+			WHERE 1=1
+			AND WO.접수확인 = 'N'
+			AND WO.접수삭제 = 'N'
+			AND WO.접수일자 = #{item.wRceptde}
+			AND WO.일련번호 = #{item.wSn}
+			;
+			
+			<!-- UPDATE 웹주문접수 SET
+				주문사업장 = OS.수주사업장
+				, 주문일자 = OS.수주일자
+				, 주문번호 = OS.수주일련번호
+				, 관리자재고중량 = #{item.wInvntryQy}
+				, 접수확인 = 'Y'
+				, 확인자 = OS.등록자
+				, 확인일자 = OS.등록일자
+				, 확인시간 = OS.등록시간
+			FROM 웹주문접수 WO JOIN 수주명세서 OS
+			ON(WO.접수일자 = OS.웹접수일자
+			AND WO.일련번호 = OS.웹일련번호)
+			WHERE 접수일자 = #{item.wRceptde}
+				AND 일련번호 = #{item.wSn} -->
+				
+		</foreach>
+	</update>
+	
+	<update id="dcsnProcessUpdate" parameterType="hashmap">
+		<foreach collection="frm" item="item" separator=";">
+			UPDATE 웹주문접수 SET
+				주문사업장 = WO.출고사업장
+				, 주문일자 = CONVERT(VARCHAR,GETDATE(),112)
+				, 주문번호 = #{item.osInsNo}
+				, 관리자재고중량 = #{item.wInvntryQy}
+				, 접수확인 = 'Y'
+				, 확인자 = #{bcncCode}
+				, 확인일자 = CONVERT(VARCHAR,GETDATE(),112)
+				, 확인시간 = REPLACE(CONVERT(VARCHAR,GETDATE(),108),':','')
+			FROM 웹주문접수 WO 
+			WHERE 접수일자 = #{item.wRceptde}
+				AND 일련번호 = #{item.wSn}
+		</foreach>
+	</update>
+	
+</mapper>

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn/wrhousInq">
+	
+	<select id="wrhousInqListCnt" parameterType="hashmap" resultType="int">
+		SELECT 
+			COUNT(*) AS 	total
+		<include refid="wrhousInqFrom"/>
+		<include refid="wrhousInqWhere"/>
+	</select>
+	
+	<select id="maxDate" parameterType="hashmap" resultType="string">
+		SELECT 
+			ISNULL(MIN(DD.출고일자),#{searchDtFrom}) AS DD_MAX_DATE
+		<include refid="wrhousInqFrom"/>
+		<include refid="wrhousInqWhere"/>
+		<if test='listStartDt != null and !listStartDt.equals("")'>
+			<![CDATA[ AND DD.출고일자 >= #{listStartDt} ]]>
+		</if>
+	</select>
+
+	<select id="wrhousInqList" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			DD.출고사업장 AS DD_DLIVYBPLC
+			, (CASE WHEN ISDATE(DD.출고일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, DD.출고일자) , 126) 
+					ELSE DD.출고일자 END) AS DD_DLIVYDE
+			, DD.출고일련번호 AS DD_DLIVYSN
+			, RTRIM(DD.출고품목코드) AS DD_DLIVY_ICCODE
+			, DD.수량 AS DD_QY
+			, DD.구분 AS DD_SE
+			, DD.출고단가 AS DD_DLIVYUNTPC
+			, DD.출고금액 + DD.부가세금액 AS  DD_DLIVYDETAIL_AM			<!-- 출고상세총금액 -->
+			, DD.출고금액 AS DD_SPLPCAM
+			, DD.부가세금액 AS DD_VAT_AM
+			, COUNT(DD.출고일자) OVER (PARTITION BY DH.출고거래처, DD.출고일자)	AS DD_CO			<!-- 건수 -->
+			, SUM(DD.출고수량) OVER (PARTITION BY DH.출고거래처, DD.출고일자)	AS DD_QYSM		<!-- 출고수량 = 중량 -->
+			, DD.비고 AS DD_RM
+			, DH.총금액	AS DD_AM			<!-- 합계 -->
+			, RTRIM(IC.품목명) AS IC_NM
+			, RTRIM(IC.규격) AS IC_STNDRD
+			, RTRIM(IC.단위) AS IC_UNIT
+			, RTRIM(CM.상호) AS CM_DLVYENTRPSNM
+			, IC.업체전용구분 AS IC_ENT_DVR_SE
+			, IC.생산구분 AS IC_PRDCTN_SE
+			, CM.생산 AS CM_PRDCTN
+			<!-- , ROW_NUMBER() OVER (PARTITION BY DD.출고일자 ORDER BY RTRIM(DD.출고품목코드)) AS GRP_DTNUMBER -->
+			, ROW_NUMBER() OVER (PARTITION BY DD.출고일자 ORDER BY RTRIM(CM.상호) DESC, DD.출고일자, RTRIM(IC.품목명)) AS GRP_DTNUMBER
+			, CONVERT(VARCHAR(8),DATEADD(DD, 5, #{listStartDt}),112) AS listStartDt
+			
+		<include refid="wrhousInqFrom"/>
+		<include refid="wrhousInqWhere"/>
+		<include refid="wrhousInqWhereListDt"/>
+		
+		ORDER BY RTRIM(CM.상호) DESC, DD.출고일자, RTRIM(IC.품목명)
+	</select>
+	
+	<sql id="wrhousInqFrom">
+		<![CDATA[  
+			FROM 출고머리 DH JOIN 출고상세 DD WITH(NOLOCK)
+			 ON (DH.출고사업장 = DD.출고사업장
+			 AND DH.출고일자 = DD.출고일자
+			 AND DH.출고일련번호 = DD.출고일련번호  )
+			 
+			 JOIN 거래처MASTER CM WITH(NOLOCK)
+			 ON (DH.출고사업장 = CM.등록사업장
+			 AND DH.출고거래처 = CM.거래처코드)
+			
+			 JOIN 품목코드 IC WITH(NOLOCK)
+			 ON (DD.출고사업장 = IC.사업장
+			 AND DD.출고품목코드 = IC.품목코드)
+		]]>
+	</sql>
+	
+	<sql id="wrhousInqWhere">
+		
+		 <![CDATA[ 
+			WHERE 1=1
+				AND DD.거래처코드 = #{bcncCode}
+				AND DH.거래명세발행여부 = 'Y'
+				AND DH.출고거래처 IN (SELECT CM2.거래처코드
+									FROM 거래처MASTER CM2
+									WHERE CM2.등록사업장 = #{registBplc}]]>
+						<if test='searchEntrpsNm != null and !searchEntrpsNm.equals("")'>
+							<![CDATA[ AND RTRIM(CM2.상호) LIKE UPPER('%'+#{searchEntrpsNm}+'%') ]]>
+						</if> <![CDATA[ ) ]]>
+		
+		<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+			<![CDATA[ AND DD.출고일자 >= #{searchDtFrom} ]]>
+		</if>
+		<if test='searchDtTo != null and !searchDtTo.equals("")'>
+			<![CDATA[ AND DD.출고일자 <= #{searchDtTo} ]]>
+		</if>
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND RTRIM(IC.품목명) LIKE UPPER('%'+#{searchItemNm}+'%') ]]>
+		</if>
+	</sql>
+	
+	<sql id="wrhousInqWhereListDt">
+		<![CDATA[ 
+			AND DD.출고일자 <= DATEADD(DD, 4, #{listStartDt})
+			AND DD.출고일자 >= #{listStartDt}
+		]]>	
+	</sql>
+
+</mapper>

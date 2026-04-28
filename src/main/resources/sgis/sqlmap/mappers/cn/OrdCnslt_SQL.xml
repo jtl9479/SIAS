@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn/ordCnslt">
+
+	<select id="ordCnsltListCnt" parameterType="hashmap" resultType="int">
+		SELECT COUNT(*) AS total
+		<include refid="ordCnsltFrom"/>
+		<include refid="ordCnsltWhere" />
+	</select>
+	
+	<select id="maxDate" parameterType="hashmap" resultType="string">
+		SELECT 
+			<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				ISNULL(MIN(WO.납기일자), #{searchDtFrom}) AS W_MAX_DATE
+			</if>
+			<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+				ISNULL(MIN(WO.접수일자), #{searchDtFrom}) AS W_MAX_DATE
+			</if>
+		<include refid="ordCnsltFrom"/>
+		<include refid="ordCnsltWhere"/>
+		<if test='listStartDt != null and !listStartDt.equals("")'>
+			<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<![CDATA[ AND WO.납기일자 >= #{listStartDt} ]]>
+			</if>
+			<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+				<![CDATA[ AND WO.접수일자 >= #{listStartDt} ]]>
+			</if>
+		</if>
+	</select>
+	
+	<select id="ordCnsltList" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			(CASE WHEN ISDATE(WO.접수일자) = 1 THEN 
+				CONVERT(VARCHAR(10), CONVERT (DATE, WO.접수일자) , 126) 
+				ELSE WO.접수일자 END) AS W_RCEPTDE
+			, WO.일련번호 AS W_SN
+			, RTRIM(IC.품목코드) AS IC_CODE
+			, RTRIM(IC.품목명) AS IC_NM
+			, RTRIM(IC.규격) AS IC_STNDRD
+			, WO.단가 AS W_UNTPC
+			, (CASE WHEN ISDATE(WO.접수일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, WO.접수일자) , 126) 
+					ELSE WO.접수일자 END) AS W_ORDERDE
+			, (CASE WHEN ISDATE(WO.납기일자) = 1 THEN 
+					CONVERT(VARCHAR(10), CONVERT (DATE, WO.납기일자) , 126) 
+					ELSE WO.납기일자 END) AS W_DEDT
+			, WO.수량 AS W_QUANTITY
+			, WO.중량 AS W_WT
+			, WO.단가단위문자 AS W_UNIT_CHRCTR
+			, WO.단가 AS W_NEWUNITPC
+			, WO.합계금액 AS W_SUMAMOUT
+			, WO.착지업체 AS W_ALOCENTRPS
+			, WO.주문비고 AS W_NOTE
+			, WO.관리자비고 AS W_ADMINNOTE
+			, (SELECT RTRIM(CM2.상호) FROM 거래처MASTER CM2 WHERE CM2.거래처코드 = WO.착지업체 AND CM2.등록사업장 = WO.출고사업장) AS DLVYENTRPSNM
+			, IC.업체전용구분 AS IC_ENT_DVR_SE
+			, IC.생산구분 AS IC_PRDCTN_SE
+			, CONVERT(VARCHAR(8),DATEADD(DD, 5, #{listStartDt}),112) AS listStartDt
+		<include refid="ordCnsltFrom"/>
+		<include refid="ordCnsltWhere"/>
+		<include refid="ordCnsltListDt"/>
+		ORDER BY WO.착지업체 DESC, WO.납기일자, RTRIM(IC.품목명)
+	</select>
+	
+	<sql id="ordCnsltFrom">
+		<![CDATA[ 
+			FROM 웹주문접수 WO JOIN 품목코드 IC WITH(NOLOCK)
+				ON (WO.단가사업장 = IC.사업장
+				AND WO.품목코드 = IC.품목코드)
+		]]>
+	</sql>
+	
+	<sql id="ordCnsltWhere">
+		<![CDATA[
+			WHERE 1=1 
+			AND IC.사업장 = #{registBplc}
+			AND IC.폐기일자 <= CONVERT(VARCHAR,GETDATE(),112)
+			AND WO.진행유무 = 'N'
+			AND WO.접수삭제 = 'N'
+			AND WO.거래처코드 = #{bcncCode}
+		]]>
+		<if test='searchItemNm != null and !searchItemNm.equals("")'>
+			<![CDATA[ AND IC.품목명 LIKE UPPER('%'+ #{searchItemNm} +'%') ]]>
+		</if>
+		<if test='searchEntrpsNm != null and !searchEntrpsNm.equals("")'>
+			<![CDATA[ AND (SELECT RTRIM(CM2.상호) 
+							FROM 거래처MASTER CM2 
+							WHERE CM2.거래처코드 = WO.착지업체 
+							AND CM2.등록사업장 = WO.출고사업장) LIKE UPPER('%'+ #{searchEntrpsNm} +'%') ]]>
+		</if>
+		<choose>
+			<when test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND WO.납기일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND WO.납기일자 <= #{searchDtTo} ]]>
+				</if>
+			</when>
+			<otherwise>
+				<if test='searchDtFrom != null and !searchDtFrom.equals("")'>
+					<![CDATA[ AND WO.접수일자 >= #{searchDtFrom} ]]>
+				</if>
+				<if test='searchDtTo != null and !searchDtTo.equals("")'>
+					<![CDATA[ AND WO.접수일자 <= #{searchDtTo} ]]>
+				</if>
+			</otherwise>
+		</choose>
+	</sql>
+	
+	<sql id="ordCnsltListDt">
+		<if test='searchDtGroup.equals("dedt") and searchDtGroup != null'>
+			<![CDATA[ 
+				AND WO.납기일자 <= DATEADD(DD, 4, #{listStartDt})
+				AND WO.납기일자 >= #{listStartDt}
+			]]>
+		</if>
+		<if test='searchDtGroup.equals("orderDe") and searchDtGroup != null'>
+			<![CDATA[ 
+				AND WO.접수일자 <= DATEADD(DD, 4, #{listStartDt})
+				AND WO.접수일자 >= #{listStartDt}
+			]]>	
+		</if>
+	</sql>
+</mapper>

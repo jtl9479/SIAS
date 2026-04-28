@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="common">
+	<select id="getAddDate" parameterType="hashmap" resultType="string">
+		SELECT CONVERT(VARCHAR,DATEADD(DD, #{addNum}, #{dateParam}),112) AS ADD_DATE  
+	</select>
+	
+	<select id="getSubDate" parameterType="hashmap" resultType="string">
+		SELECT CONVERT(VARCHAR,DATEADD(DD, -1, #{dateParam}),112) AS SUB_DATE  
+	</select>
+	
+	<select id="getDeadLine" parameterType="hashmap" resultType="hashmap">
+		SELECT DBO.웹_납기일자_함수(#{bcncCode},GETDATE()) AS DEADLINE
+	</select>
+
+	<select id="getHoliday" parameterType="hashmap" resultType="hashmap">
+		<![CDATA[
+		SELECT
+			CLDR.사업장 AS CLDR_BPLC
+			, CLDR.일자 AS CLDR_DEDT
+			, CLDR.주차 AS CLDR_WEEK
+			, CLDR.공휴유무 AS CLDR_HLDYENNC
+			, CLDR.공휴사유 AS CLDR_HLDYPRVONSH
+		FROM 달력 CLDR
+		WHERE CLDR.사업장 = '20'
+			AND CLDR.일자 > CONVERT(VARCHAR , GETDATE(),112)
+			AND RTRIM(CLDR.공휴유무) <> ''
+			AND ( LEFT(CLDR.공휴사유,2) <> '토요' AND LEFT(CLDR.공휴사유,2) <> '일 ')
+		]]>
+		<!-- AND CLDR.일자 > CONVERT(VARCHAR , GETDATE() ,112)  '20190101'  -->
+	</select>
+	
+	<!-- 재고상태 공통사용 -->
+	<!-- <select id="getInvntrySttus" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			IC.사업장 AS IC_BPLC
+			, RTRIM(IC.품목코드) AS IC_CODE
+			, RTRIM(IC.품목명) AS IC_NM
+			, RTRIM(IC.규격) AS IC_STNDRD
+			, RTRIM(IC.단위) AS IC_UNIT
+			, IC.단위중량 AS IC_UNITWT
+			, (CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END) AS IC_PACKNGUNIT
+			, IC.단위당수량 AS IC_UNITQY
+			, IC.업체전용구분 AS IC_ENT_DVR_SE
+			, IC.생산구분 AS IC_PRDCTN_SE
+			, DBO.최신단가_함수(IC.사업장, IC.품목코드, CONVERT(VARCHAR, GETDATE(), 112)) AS INVNTRY_WT
+			, 0 AS INVNTRY_WT
+			FROM 품목코드 IC 
+			WHERE 1=1 
+			AND IC.사업장  = #{W_UNIT_BPLC}
+			AND IC.품목코드 = #{IC_CODE}
+	</select> -->
+	
+	<select id="getInvntrySttus" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			DBO.웹_재고중량_함수(#{W_DEDT}, #{IC_CODE}, #{INQIRE_SE}, #{W_DE}, #{W_SN}) AS INVNTRY_WT
+			, (CASE IC.포장단위 WHEN 0 THEN 1 ELSE IC.포장단위 END) AS IC_PACKNGUNIT
+			<!-- // ** 2019.11 단위중량, 단위당수량 0일경우 1로 치환해서 가져옴 추가 -->
+			, (CASE IC.단위당수량 WHEN 0 THEN 1 ELSE IC.단위당수량 END) AS IC_UNITQY 
+			FROM 품목코드 IC 
+			WHERE 1=1 
+			AND IC.사업장  = #{W_UNIT_BPLC}
+			AND IC.품목코드 = #{IC_CODE}
+	</select>
+	
+	<!-- Sub Menu 공통사용 -->
+	<select id="subMenu" parameterType="hashmap" resultType="hashmap">
+		SELECT 
+			일련번호 AS SN 
+			, 메뉴구분 AS MENU_SE
+			, 메뉴공지A사용 AS A_USE_AT 
+			, 메뉴공지A AS MENU_A
+			, 메뉴공지B사용 AS B_USE_AT
+			, 메뉴공지B AS MENU_B
+		FROM 웹메뉴공지
+		WHERE 메뉴구분 = #{menuSe}
+	</select>
+	
+</mapper>
